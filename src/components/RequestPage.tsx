@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Socket } from 'socket.io-client';
 import axios from 'axios';
 import debounce from 'lodash.debounce';
-import { Search, Music, Clock, Play, User, ListMusic, Loader2 } from 'lucide-react';
+import { Search, Music, Clock, Play, User, ListMusic, Loader2, ThumbsUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 
@@ -21,8 +21,9 @@ interface QueueItem {
   videoId: string;
   title: string;
   thumbnail: string;
-  requesterIp: string;
+  requesterName: string;
   timestamp: string;
+  votes: number;
 }
 
 interface AppSettings {
@@ -34,6 +35,7 @@ interface AppSettings {
 
 export default function RequestPage({ socket }: RequestPageProps) {
   const [query, setQuery] = useState('');
+  const [username, setUsername] = useState('');
   const [results, setResults] = useState<Video[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -45,13 +47,21 @@ export default function RequestPage({ socket }: RequestPageProps) {
     allowDuplicateRequests: false,
     defaultVolume: 0.5,
   });
+  const [votedSongs, setVotedSongs] = useState<string[]>([]);
+  const [mobileTab, setMobileTab] = useState<'playing' | 'queue'>('playing');
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem('requestSettings');
-      if (!raw) return;
-      const saved = JSON.parse(raw);
-      setSettings(prev => ({ ...prev, ...saved }));
+      if (raw) {
+        const saved = JSON.parse(raw);
+        setSettings(prev => ({ ...prev, ...saved }));
+      }
+
+      const savedName = localStorage.getItem('requesterName');
+      if (savedName) {
+        setUsername(savedName);
+      }
     } catch {
       // ignore invalid local data
     }
@@ -116,6 +126,19 @@ export default function RequestPage({ socket }: RequestPageProps) {
     }
   }, [cooldown]);
 
+  useEffect(() => {
+    const saved = localStorage.getItem('votedSongs');
+    if (saved) setVotedSongs(JSON.parse(saved));
+  }, []);
+
+  const handleVote = (id: string) => {
+    if (votedSongs.includes(id)) return;
+    socket.emit('vote-song', id);
+    const next = [...votedSongs, id];
+    setVotedSongs(next);
+    localStorage.setItem('votedSongs', JSON.stringify(next));
+  };
+
   const searchYouTube = useCallback(
     debounce(async (val: string) => {
       if (!val) {
@@ -157,7 +180,7 @@ export default function RequestPage({ socket }: RequestPageProps) {
       toast.error(`Please wait ${cooldown}s before requesting again.`);
       return;
     }
-    socket.emit('request-song', video);
+    socket.emit('request-song', { ...video, requesterName: username || 'anonymous' });
     setQuery('');
     setResults([]);
   };
@@ -169,6 +192,26 @@ export default function RequestPage({ socket }: RequestPageProps) {
         <div className="space-y-2">
           <h1 className="text-3xl lg:text-4xl font-bold tracking-tight text-center lg:text-left">Request <span className="text-orange-500">Music</span></h1>
           <p className="text-sm lg:text-base text-white/60 text-center lg:text-left">Search and add songs to the live stream queue.</p>
+        </div>
+
+        {/* Username Input */}
+        <div className="bg-[#151619] border border-white/10 rounded-2xl p-4 lg:p-5 flex items-center gap-4 focus-within:border-orange-500/50 transition-all">
+          <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center shrink-0">
+            <User className="w-6 h-6 text-white/40" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <label className="text-[10px] lg:text-xs uppercase font-black text-white/75 tracking-widest block mb-1">Your Name (Optional)</label>
+            <input
+              type="text"
+              placeholder="anonymous"
+              className="w-full bg-transparent border-none outline-none text-white font-bold p-0 focus:ring-0 placeholder:text-white/20 text-base lg:text-lg"
+              value={username}
+              onChange={(e) => {
+                setUsername(e.target.value);
+                localStorage.setItem('requesterName', e.target.value);
+              }}
+            />
+          </div>
         </div>
 
         <div className="relative group">
@@ -202,22 +245,22 @@ export default function RequestPage({ socket }: RequestPageProps) {
                   key={video.videoId}
                   onClick={() => handleRequest(video)}
                   disabled={cooldown > 0}
-                  className="flex items-center gap-3 lg:gap-4 p-2 lg:p-3 bg-[#151619] border border-white/10 rounded-xl hover:bg-white/5 hover:border-white/20 transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-4 p-3 lg:p-4 bg-[#151619] border border-white/10 rounded-2xl hover:bg-white/5 hover:border-white/20 transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                 >
-                  <img 
-                    src={video.thumbnail} 
-                    alt="" 
-                    className="w-20 lg:w-24 h-12 lg:h-14 object-cover rounded-md shrink-0" 
+                  <img
+                    src={video.thumbnail}
+                    alt=""
+                    className="w-24 lg:w-32 h-14 lg:h-18 object-cover rounded-xl shrink-0 shadow-md"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${video.videoId}/mqdefault.jpg`;
                     }}
                   />
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-medium truncate group-hover:text-orange-500 transition-colors text-sm lg:text-base">{video.title}</h4>
-                    <p className="text-[10px] lg:text-xs text-white/40 mt-0.5 lg:mt-1 uppercase tracking-wider font-semibold">YouTube Video</p>
+                    <h4 className="font-bold truncate group-hover:text-orange-500 transition-colors text-base lg:text-lg">{video.title}</h4>
+                    <p className="text-xs text-white/40 mt-1 uppercase tracking-wider font-bold">YouTube Video</p>
                   </div>
                   <div className="px-2 lg:px-4 shrink-0">
-                    <Play className="w-4 h-4 lg:w-5 lg:h-5 text-orange-500 opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-1" />
+                    <Play className="w-5 h-5 lg:w-6 lg:h-6 text-orange-500 transform group-hover:translate-x-1 transition-transform" />
                   </div>
                 </button>
               ))}
@@ -226,65 +269,144 @@ export default function RequestPage({ socket }: RequestPageProps) {
         </AnimatePresence>
       </section>
 
-      <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
-        {/* Now Playing */}
-        <section className="space-y-4 lg:space-y-6">
-          <div className="flex items-center gap-2 text-xs lg:text-sm font-bold uppercase tracking-widest text-white/40">
-            <Play className="w-4 h-4" /> Now Playing
-          </div>
+      <div className="space-y-6 lg:space-y-0">
+        {/* Mobile Tab Switcher */}
+        <div className="flex lg:hidden bg-[#151619] border border-white/10 p-1 rounded-2xl">
+          <button
+            onClick={() => setMobileTab('playing')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${mobileTab === 'playing' ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-white/40'}`}
+          >
+            <Play className="w-4 h-4" />
+            Playing
+          </button>
+          <button
+            onClick={() => setMobileTab('queue')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${mobileTab === 'queue' ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-white/40'}`}
+          >
+            <ListMusic className="w-4 h-4" />
+            Queue ({queue.length})
+          </button>
+        </div>
 
-          <div className="bg-[#151619] rounded-[2rem] border border-white/10 p-4 lg:p-6 overflow-hidden relative">
-            {nowPlaying ? (
-              <div className="space-y-4">
-                <div className="aspect-video rounded-xl lg:rounded-2xl overflow-hidden bg-black/40">
-                  <img 
-                    src={nowPlaying.thumbnail || `https://img.youtube.com/vi/${nowPlaying.videoId}/maxresdefault.jpg`} 
-                    className="w-full h-full object-cover" 
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${nowPlaying.videoId}/mqdefault.jpg`;
-                    }}
-                  />
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
+          {/* Now Playing */}
+          <section className={`space-y-4 lg:space-y-6 ${mobileTab === 'playing' ? 'block' : 'hidden lg:block'}`}>
+            <div className="hidden lg:flex items-center gap-2 text-xs lg:text-sm font-bold uppercase tracking-widest text-white/40">
+              <Play className="w-4 h-4" /> Now Playing
+            </div>
+
+            <div className="bg-[#151619] rounded-[2rem] border border-white/10 p-5 lg:p-8 overflow-hidden relative shadow-2xl group">
+              {/* Background Glow */}
+              {nowPlaying && (
+                <div className="absolute inset-0 opacity-10 blur-3xl -z-10 group-hover:opacity-20 transition-opacity">
+                  <img src={nowPlaying.thumbnail} alt="" className="w-full h-full object-cover scale-150" />
                 </div>
-                <div>
-                  <h3 className="text-lg lg:text-xl font-bold line-clamp-2 leading-tight uppercase tracking-tight">{nowPlaying.title || 'Loading...'}</h3>
-                </div>
-              </div>
-            ) : (
-              <div className="aspect-video rounded-xl lg:rounded-2xl bg-white/5 flex flex-col items-center justify-center text-white/20">
-                <Music className="w-10 h-10 lg:w-12 lg:h-12 mb-4 animate-pulse" />
-                <p className="text-xs lg:text-sm font-medium">Nothing is playing right now</p>
-              </div>
-            )}
-          </div>
-        </section>
+              )}
 
-        {/* Queue */}
-        <section className="space-y-4 lg:space-y-6">
-          <div className="flex items-center gap-2 text-xs lg:text-sm font-bold uppercase tracking-widest text-white/40">
-            <ListMusic className="w-4 h-4" /> Upcoming Queue
-          </div>
-
-          <div className="space-y-2 lg:space-y-3">
-            {queue.length > 0 ? (
-              queue.map((item, index) => (
-                <div key={item.id} className="flex items-center gap-3 lg:gap-4 p-3 lg:p-4 bg-white/5 rounded-xl lg:rounded-2xl border border-white/5">
-                  <span className="text-[10px] lg:text-xs font-bold text-orange-500/50 w-4 lg:w-5">{(index + 1).toString().padStart(2, '0')}</span>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium truncate text-xs lg:text-sm">{item.title}</h4>
-                    <div className="flex items-center gap-2 mt-0.5 lg:mt-1 text-[9px] lg:text-[10px] uppercase font-bold text-white/30 tracking-widest">
-                      <User className="w-2.5 h-2.5 lg:w-3 lg:h-3" /> Requested by IP {item.requesterIp.slice(-4)}
+              {nowPlaying ? (
+                <div className="flex flex-col sm:flex-row items-center gap-6">
+                  <div className="w-full sm:w-1/3 aspect-video rounded-2xl overflow-hidden bg-black/40 shrink-0 shadow-2xl ring-1 ring-white/10 relative">
+                    <img
+                      src={nowPlaying.thumbnail || `https://img.youtube.com/vi/${nowPlaying.videoId}/maxresdefault.jpg`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${nowPlaying.videoId}/mqdefault.jpg`;
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                  </div>
+                  <div className="flex-1 min-w-0 text-center sm:text-left space-y-4">
+                    <h3 className="text-xl lg:text-2xl font-black line-clamp-2 leading-tight uppercase tracking-tight italic text-white drop-shadow-lg">{nowPlaying.title || 'Loading...'}</h3>
+                    <div className="flex flex-wrap items-center gap-3 justify-center sm:justify-start">
+                      <div className="text-[10px] lg:text-xs font-black text-orange-500 bg-orange-500/10 border border-orange-500/20 px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
+                        Live Now
+                      </div>
+                      <div className="text-[10px] lg:text-xs font-bold text-white/40 bg-white/5 border border-white/10 px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-2">
+                        <User className="w-3 h-3" />
+                        {nowPlaying.requesterName || 'anonymous'}
+                      </div>
                     </div>
                   </div>
                 </div>
-              ))
-            ) : (
-              <div className="py-12 border-2 border-dashed border-white/5 rounded-[2rem] flex flex-col items-center justify-center text-white/20 text-center px-6">
-                <p className="text-sm font-medium">The queue is empty</p>
-                <p className="text-xs">Be the first to request a song!</p>
-              </div>
-            )}
-          </div>
-        </section>
+              ) : (
+                <div className="aspect-video rounded-xl lg:rounded-2xl bg-white/5 flex flex-col items-center justify-center text-white/20">
+                  <Music className="w-10 h-10 lg:w-12 lg:h-12 mb-4 animate-pulse" />
+                  <p className="text-xs lg:text-sm font-medium">Nothing is playing right now</p>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Queue */}
+          <section className={`space-y-4 lg:space-y-6 ${mobileTab === 'queue' ? 'block animate-in fade-in slide-in-from-bottom-2 duration-300' : 'hidden lg:block'}`}>
+            <div className="hidden lg:flex items-center gap-2 text-xs lg:text-sm font-bold uppercase tracking-widest text-white/40 px-2">
+              <ListMusic className="w-4 h-4" /> Upcoming Queue
+            </div>
+
+            <div className="space-y-3">
+              {queue.length > 0 ? (
+                queue.map((item, index) => (
+                  <div key={item.id} className="flex items-center gap-3 p-3 bg-white/[0.03] hover:bg-white/[0.06] rounded-2xl transition-all group/item border border-white/5 shadow-sm">
+                    {/* Image Container - Better sizing for mobile */}
+                    <div className="relative shrink-0">
+                      <img
+                        src={item.thumbnail}
+                        alt=""
+                        className="w-16 h-10 sm:w-20 sm:h-12 object-cover rounded-lg shadow-lg ring-1 ring-white/10 transition-transform group-hover/item:scale-105"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg`;
+                        }}
+                      />
+                      {/* Mobile-only Index Badge */}
+                      <div className="absolute -top-1.5 -left-1.5 bg-orange-500 text-black w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black italic shadow-lg lg:hidden">
+                        {index + 1}
+                      </div>
+                    </div>
+
+                    {/* Metadata - Improved spacing */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                      <h4 className="font-bold truncate text-sm sm:text-base group-hover/item:text-orange-500 transition-colors leading-snug">
+                        {item.title}
+                      </h4>
+
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-1 text-[10px] font-bold text-white/30 uppercase tracking-wider shrink-0">
+                          <User className="w-2.5 h-2.5" />
+                          <span className="truncate max-w-[80px] sm:max-w-[120px]">
+                            {item.requesterName || 'anon'}
+                          </span>
+                        </div>
+                        <span className="text-white/10 text-[10px]">•</span>
+                        <div className="text-[10px] font-black text-orange-500/60 uppercase tracking-widest whitespace-nowrap">
+                          {item.votes} {item.votes === 1 ? 'vote' : 'votes'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Vote Button - Larger touch target for mobile */}
+                    <button
+                      onClick={() => handleVote(item.id)}
+                      disabled={votedSongs.includes(item.id)}
+                      className={`p-3 rounded-xl shrink-0 transition-all ${votedSongs.includes(item.id)
+                        ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20'
+                        : 'bg-white/5 text-white/40 hover:text-white hover:bg-white/10 active:scale-95'
+                        }`}
+                    >
+                      <ThumbsUp className={`w-4 h-4 ${votedSongs.includes(item.id) ? 'fill-current' : ''}`} />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="py-12 border-2 border-dashed border-white/5 rounded-[2rem] flex flex-col items-center justify-center text-white/20 text-center px-6">
+                  <Music className="w-10 h-10 mb-3 opacity-20" />
+                  <p className="text-sm font-bold uppercase tracking-widest">Queue Empty</p>
+                  <p className="text-xs text-white/10 mt-1">Request a song to start the party!</p>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
       </div>
 
       {/* Floating Cooldown UI */}

@@ -81,7 +81,7 @@ export default function OverlayPage({ socket }: OverlayPageProps) {
               <div className="flex items-center gap-3 text-xs font-bold text-white/40 uppercase tracking-widest">
                 <span>YouTube Media</span>
                 <span className="w-1 h-1 rounded-full bg-white/20" />
-                <span className="text-white/60">Live Request</span>
+                <span className="text-white/60">Requested by {nowPlaying.requesterName || 'anonymous'}</span>
               </div>
             </div>
 

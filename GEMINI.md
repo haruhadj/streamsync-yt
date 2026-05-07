@@ -44,7 +44,7 @@
       "update-queue"
     ],
     "postgres_tables": [
-      "Requests (id, videoId, title, requesterIp, createdAt)",
+      "Requests (id, videoId, title, requesterName, votes, createdAt)",
       "Blacklist (videoId, title, reason)"
     ]
   },

@@ -15,9 +15,10 @@ model Request {
   videoId      String
   title        String
   thumbnail    String?
-  requesterIp  String
+  requesterName String   @default("anonymous")
   timestamp    DateTime @default(now())
   status       String   @default("pending") // pending, playing, played
+  votes        Int      @default(0)
 }
 
 model Blacklist {

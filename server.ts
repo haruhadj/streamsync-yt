@@ -34,6 +34,7 @@ interface PlayerState {
   thumbnail: string;
   playing: boolean;
   currentTime: number;
+  requesterName?: string;
 }
 
 const appSettings: AppSettings = {
@@ -139,7 +140,10 @@ io.on("connection", async (socket) => {
   // Send initial queue
   const queue = await prisma.request.findMany({
     where: { status: "pending" },
-    orderBy: { timestamp: "asc" },
+    orderBy: [
+      { votes: "desc" },
+      { timestamp: "asc" }
+    ],
   });
   socket.emit("queue-update", queue);
 
@@ -158,6 +162,7 @@ io.on("connection", async (socket) => {
       thumbnail: activeTrack.thumbnail || "",
       playing: true,
       currentTime: 0,
+      requesterName: activeTrack.requesterName,
     };
     socket.emit("player-state-sync", currentPlayerState);
   }
@@ -172,7 +177,7 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("request-song", async (data) => {
-    const { videoId, title, thumbnail } = data;
+    const { videoId, title, thumbnail, requesterName } = data;
     const now = Date.now();
 
     if (appSettings.requestCooldownSeconds > 0) {
@@ -188,12 +193,6 @@ io.on("connection", async (socket) => {
     const isBlacklisted = await prisma.blacklist.findUnique({ where: { videoId } });
     if (isBlacklisted) {
       return socket.emit("error-toast", "This song is blacklisted.");
-    }
-
-    // Check if user is banned
-    const isBanned = await prisma.bannedIp.findUnique({ where: { ip: clientIp } });
-    if (isBanned) {
-      return socket.emit("error-toast", "You are banned from requesting songs.");
     }
 
     const pendingQueueCount = await prisma.request.count({
@@ -221,7 +220,7 @@ io.on("connection", async (socket) => {
           videoId,
           title,
           thumbnail,
-          requesterIp: clientIp,
+          requesterName: requesterName || "anonymous",
         },
       });
 
@@ -240,6 +239,7 @@ io.on("connection", async (socket) => {
             title: newRequest.title,
             playing: true,
             currentTime: 0,
+            requesterName: newRequest.requesterName,
           };
           io.emit("active-track-update", newRequest);
           io.emit("player-state-sync", currentPlayerState);
@@ -247,7 +247,10 @@ io.on("connection", async (socket) => {
 
       const updatedQueue = await prisma.request.findMany({
         where: { status: "pending" },
-        orderBy: { timestamp: "asc" },
+        orderBy: [
+          { votes: "desc" },
+          { timestamp: "asc" }
+        ],
       });
       requesterLastRequestAt.set(clientIp, now);
       io.emit("queue-update", updatedQueue);
@@ -255,6 +258,25 @@ io.on("connection", async (socket) => {
     } catch (err) {
       console.error(err);
       socket.emit("error-toast", "Failed to add song.");
+    }
+  });
+
+  socket.on("vote-song", async (requestId) => {
+    try {
+      await prisma.request.update({
+        where: { id: requestId },
+        data: { votes: { increment: 1 } }
+      });
+      const updatedQueue = await prisma.request.findMany({
+        where: { status: "pending" },
+        orderBy: [
+          { votes: "desc" },
+          { timestamp: "asc" }
+        ],
+      });
+      io.emit("queue-update", updatedQueue);
+    } catch (err) {
+      console.error(err);
     }
   });
 
@@ -291,6 +313,7 @@ io.on("connection", async (socket) => {
         thumbnail: next.thumbnail || "",
         playing: true,
         currentTime: 0,
+        requesterName: next.requesterName,
       };
     } else {
       currentPlayerState = null;
@@ -298,7 +321,10 @@ io.on("connection", async (socket) => {
 
     const updatedQueue = await prisma.request.findMany({
       where: { status: "pending" },
-      orderBy: { timestamp: "asc" },
+      orderBy: [
+        { votes: "desc" },
+        { timestamp: "asc" }
+      ],
     });
     io.emit("queue-update", updatedQueue);
     if (currentPlayerState) {
@@ -311,7 +337,10 @@ io.on("connection", async (socket) => {
     await prisma.request.delete({ where: { id: requestId } });
     const updatedQueue = await prisma.request.findMany({
       where: { status: "pending" },
-      orderBy: { timestamp: "asc" },
+      orderBy: [
+        { votes: "desc" },
+        { timestamp: "asc" }
+      ],
     });
     io.emit("queue-update", updatedQueue);
   });
@@ -328,7 +357,10 @@ io.on("connection", async (socket) => {
     }
     const updatedQueue = await prisma.request.findMany({
       where: { status: "pending" },
-      orderBy: { timestamp: "asc" },
+      orderBy: [
+        { votes: "desc" },
+        { timestamp: "asc" }
+      ],
     });
     io.emit("queue-update", updatedQueue);
   });
@@ -339,12 +371,8 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("admin-ban-user", async (ip) => {
-      await prisma.bannedIp.upsert({
-          where: { ip },
-          update: {},
-          create: { ip }
-      });
-      socket.emit("success-toast", `IP ${ip} has been banned.`);
+      // Banning logic disabled as requesterIp is removed
+      socket.emit("error-toast", "IP banning is currently disabled.");
   });
 
   socket.on("admin-ban-video", async (data: { videoId: string, title: string }) => {
@@ -359,7 +387,10 @@ io.on("connection", async (socket) => {
       });
       const updatedQueue = await prisma.request.findMany({
           where: { status: "pending" },
-          orderBy: { timestamp: "asc" },
+          orderBy: [
+            { votes: "desc" },
+            { timestamp: "asc" }
+          ],
       });
       io.emit("queue-update", updatedQueue);
       socket.emit("success-toast", "Video has been blacklisted.");
@@ -373,13 +404,16 @@ io.on("connection", async (socket) => {
           videoId,
           title,
           thumbnail,
-          requesterIp: "ADMIN",
+          requesterName: "Admin",
         },
       });
 
       const updatedQueue = await prisma.request.findMany({
         where: { status: "pending" },
-        orderBy: { timestamp: "asc" },
+        orderBy: [
+          { votes: "desc" },
+          { timestamp: "asc" }
+        ],
       });
       io.emit("queue-update", updatedQueue);
       socket.emit("success-toast", "Song added by Admin!");
@@ -401,19 +435,20 @@ io.on("connection", async (socket) => {
       // Create new as playing
       const newTrack = await prisma.request.create({
           data: {
-              videoId,
-              title,
-              thumbnail,
-              requesterIp: "ADMIN",
-              status: "playing"
-          }
-      });
+          videoId,
+          title,
+          thumbnail,
+          status: "playing",
+          requesterName: "Admin"
+      }
+    });
 
       currentPlayerState = {
           videoId: newTrack.videoId,
           title: newTrack.title,
           playing: true,
           currentTime: 0,
+          requesterName: newTrack.requesterName,
       };
 
       io.emit("active-track-update", newTrack);
