@@ -325,6 +325,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
       socket.emit('admin-player-state', {
         videoId: currentVideo.videoId,
         title: currentVideo.title,
+        thumbnail: currentVideo.thumbnail,
         playing: isPlaying,
         currentTime: curr,
       });

@@ -204,7 +204,14 @@ export default function RequestPage({ socket }: RequestPageProps) {
                   disabled={cooldown > 0}
                   className="flex items-center gap-3 lg:gap-4 p-2 lg:p-3 bg-[#151619] border border-white/10 rounded-xl hover:bg-white/5 hover:border-white/20 transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <img src={video.thumbnail} alt="" className="w-20 lg:w-24 h-12 lg:h-14 object-cover rounded-md shrink-0" />
+                  <img 
+                    src={video.thumbnail} 
+                    alt="" 
+                    className="w-20 lg:w-24 h-12 lg:h-14 object-cover rounded-md shrink-0" 
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${video.videoId}/mqdefault.jpg`;
+                    }}
+                  />
                   <div className="flex-1 min-w-0">
                     <h4 className="font-medium truncate group-hover:text-orange-500 transition-colors text-sm lg:text-base">{video.title}</h4>
                     <p className="text-[10px] lg:text-xs text-white/40 mt-0.5 lg:mt-1 uppercase tracking-wider font-semibold">YouTube Video</p>
@@ -230,7 +237,13 @@ export default function RequestPage({ socket }: RequestPageProps) {
             {nowPlaying ? (
               <div className="space-y-4">
                 <div className="aspect-video rounded-xl lg:rounded-2xl overflow-hidden bg-black/40">
-                  <img src={`https://img.youtube.com/vi/${nowPlaying.videoId}/maxresdefault.jpg`} className="w-full h-full object-cover" />
+                  <img 
+                    src={nowPlaying.thumbnail || `https://img.youtube.com/vi/${nowPlaying.videoId}/maxresdefault.jpg`} 
+                    className="w-full h-full object-cover" 
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${nowPlaying.videoId}/mqdefault.jpg`;
+                    }}
+                  />
                 </div>
                 <div>
                   <h3 className="text-lg lg:text-xl font-bold line-clamp-2 leading-tight uppercase tracking-tight">{nowPlaying.title || 'Loading...'}</h3>

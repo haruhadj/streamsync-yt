@@ -15,10 +15,10 @@ interface PlayerState {
 }
 
 export default function OverlayPage({ socket }: OverlayPageProps) {
-  const [nowPlaying, setNowPlaying] = useState<PlayerState | null>(null);
+  const [nowPlaying, setNowPlaying] = useState<any | null>(null);
 
   useEffect(() => {
-    socket.on('player-state-sync', (state: PlayerState) => {
+    socket.on('player-state-sync', (state: any) => {
       setNowPlaying(state);
     });
 
@@ -45,9 +45,12 @@ export default function OverlayPage({ socket }: OverlayPageProps) {
             {/* Thumbnail */}
             <div className="relative w-24 h-24 rounded-2xl overflow-hidden shadow-xl ring-1 ring-white/10 shrink-0">
               <img 
-                src={`https://img.youtube.com/vi/${nowPlaying.videoId}/mqdefault.jpg`} 
+                src={nowPlaying.thumbnail || `https://img.youtube.com/vi/${nowPlaying.videoId}/mqdefault.jpg`} 
                 className="w-full h-full object-cover scale-110 group-hover:scale-125 transition-transform duration-700"
                 alt=""
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${nowPlaying.videoId}/mqdefault.jpg`;
+                }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
               <div className="absolute bottom-2 left-2 p-1 bg-orange-500 text-black rounded-lg">

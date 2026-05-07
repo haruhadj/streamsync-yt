@@ -31,6 +31,7 @@ interface AppSettings {
 interface PlayerState {
   videoId: string;
   title: string;
+  thumbnail: string;
   playing: boolean;
   currentTime: number;
 }
@@ -154,6 +155,7 @@ io.on("connection", async (socket) => {
     currentPlayerState = {
       videoId: activeTrack.videoId,
       title: activeTrack.title,
+      thumbnail: activeTrack.thumbnail || "",
       playing: true,
       currentTime: 0,
     };
@@ -257,7 +259,7 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("admin-player-state", (state) => {
-    // state: { videoId, playing, currentTime }
+    // state: { videoId, title, thumbnail, playing, currentTime }
     currentPlayerState = state;
     socket.broadcast.emit("player-state-sync", state);
   });
@@ -286,6 +288,7 @@ io.on("connection", async (socket) => {
       currentPlayerState = {
         videoId: next.videoId,
         title: next.title,
+        thumbnail: next.thumbnail || "",
         playing: true,
         currentTime: 0,
       };
