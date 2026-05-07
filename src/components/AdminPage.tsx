@@ -299,14 +299,10 @@ export default function AdminPage({ socket }: AdminPageProps) {
 
   const handleAdminAdd = (video: VideoResult) => {
     socket.emit('admin-add-song', { ...video, requesterName: 'Admin' });
-    setSearchQuery('');
-    setSearchResults([]);
   };
 
   const handlePlayNow = (video: VideoResult) => {
     socket.emit('admin-play-now', { ...video, requesterName: 'Admin' });
-    setSearchQuery('');
-    setSearchResults([]);
   };
 
   useEffect(() => {
