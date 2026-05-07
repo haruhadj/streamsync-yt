@@ -1,0 +1,6 @@
+{
+  "name": "StreamSync-YT",
+  "description": "Real-time synchronized YouTube player for streamers and viewers with request queue and OBS overlay.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
