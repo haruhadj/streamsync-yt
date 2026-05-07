@@ -322,9 +322,9 @@ export default function RequestPage({ socket }: RequestPageProps) {
                         <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
                         Live Now
                       </div>
-                      <div className="text-[10px] lg:text-xs font-bold text-white/40 bg-white/5 border border-white/10 px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-2">
+                      <div className={`text-[10px] lg:text-xs font-bold ${nowPlaying.requesterName === 'Admin' ? 'text-orange-500 bg-orange-500/10 border-orange-500/20' : 'text-white/40 bg-white/5 border-white/10'} border px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-2`}>
                         <User className="w-3 h-3" />
-                        {nowPlaying.requesterName || 'anonymous'}
+                        {nowPlaying.requesterName === 'Admin' ? 'Added by Admin' : (nowPlaying.requesterName || 'anonymous')}
                       </div>
                     </div>
                   </div>
@@ -371,10 +371,10 @@ export default function RequestPage({ socket }: RequestPageProps) {
                       </h4>
 
                       <div className="flex items-center gap-2 mt-1">
-                        <div className="flex items-center gap-1 text-[10px] font-bold text-white/30 uppercase tracking-wider shrink-0">
+                        <div className={`flex items-center gap-1 text-[10px] font-bold ${item.requesterName === 'Admin' ? 'text-orange-500' : 'text-white/30'} uppercase tracking-wider shrink-0`}>
                           <User className="w-2.5 h-2.5" />
                           <span className="truncate max-w-[80px] sm:max-w-[120px]">
-                            {item.requesterName || 'anon'}
+                            {item.requesterName === 'Admin' ? 'Added by Admin' : (item.requesterName || 'anon')}
                           </span>
                         </div>
                         <span className="text-white/10 text-[10px]">•</span>

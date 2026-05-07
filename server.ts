@@ -327,9 +327,7 @@ io.on("connection", async (socket) => {
       ],
     });
     io.emit("queue-update", updatedQueue);
-    if (currentPlayerState) {
-      io.emit("player-state-sync", currentPlayerState);
-    }
+    io.emit("player-state-sync", currentPlayerState);
     io.emit("active-track-update", next);
   });
 
