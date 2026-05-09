@@ -3,7 +3,7 @@
   "stack": {
     "frontend": "Next.js 14+ (App Router), TypeScript, Tailwind CSS",
     "backend": "Standalone Node.js + Socket.io (to be hosted on Raspberry Pi)",
-    "database": "PostgreSQL with Prisma ORM",
+    "database": "SQLite with Prisma ORM",
     "player_api": "Official YouTube IFrame Player API"
   },
   "pages": {
@@ -49,7 +49,7 @@
     ]
   },
   "constraints": [
-    "Do not use Firebase; use PostgreSQL.",
+    "Use SQLite for local data persistence on Raspberry Pi.",
     "Use dynamic imports for the YouTube player to avoid SSR issues.",
     "The Socket URL must be an environment variable for Cloudflare Tunneling."
   ]

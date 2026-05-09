@@ -16,9 +16,21 @@ model Request {
   title        String
   thumbnail    String?
   requesterName String   @default("anonymous")
+  requesterIp  String?
   timestamp    DateTime @default(now())
   status       String   @default("pending") // pending, playing, played
   votes        Int      @default(0)
+  voteRecords  Vote[]
+}
+
+model Vote {
+  id        String   @id @default(uuid())
+  requestId String
+  ip        String
+  timestamp DateTime @default(now())
+  request   Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, ip])
 }
 
 model Blacklist {
@@ -31,6 +43,7 @@ model BannedIp {
   ip        String   @id
   reason    String?
   timestamp DateTime @default(now())
+  expiresAt DateTime?
 }
 
 model AppSetting {

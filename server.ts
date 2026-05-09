@@ -19,7 +19,20 @@ const io = new Server(httpServer, {
   },
 });
 
+const logger = {
+  info: (msg: string, ...args: any[]) => console.log(`[INFO] ${new Date().toISOString()} - ${msg}`, ...args),
+  warn: (msg: string, ...args: any[]) => console.warn(`[WARN] ${new Date().toISOString()} - ${msg}`, ...args),
+  error: (msg: string, ...args: any[]) => console.error(`[ERROR] ${new Date().toISOString()} - ${msg}`, ...args),
+};
+
 const PORT = 3000;
+
+app.set("trust proxy", true);
+
+// Custom Socket type with admin flag
+interface AuthenticatedSocket extends Server["sockets"] {
+  isAdmin?: boolean;
+}
 
 interface AppSettings {
   requestCooldownSeconds: number;
@@ -95,6 +108,39 @@ async function persistSettings(settings: AppSettings) {
 
 app.use(express.json());
 
+async function searchInvidious(q: string) {
+  const INVIDIOUS_URL = process.env.INVIDIOUS_URL || "http://127.0.0.1:3000";
+  logger.info(`Invidious API fetching for: "${q}"`);
+  
+  try {
+    const response = await axios.get(`${INVIDIOUS_URL}/api/v1/search`, {
+      params: { q, type: "video" },
+      timeout: 5000,
+    });
+
+    return response.data
+      .filter((item: any) => item.type === "video")
+      .map((item: any) => ({
+        videoId: item.videoId,
+        title: item.title,
+        thumbnail: item.videoThumbnails?.find((t: any) => t.quality === "medium")?.url || item.videoThumbnails?.[0]?.url || "",
+      }));
+  } catch (error: any) {
+    logger.error("Invidious Search Error:", error.message);
+    throw error;
+  }
+}
+
+async function checkInvidiousHealth() {
+  const INVIDIOUS_URL = process.env.INVIDIOUS_URL || "http://127.0.0.1:3000";
+  try {
+    await axios.get(`${INVIDIOUS_URL}/api/v1/stats`, { timeout: 3000 });
+    logger.info("Invidious instance is healthy.");
+  } catch (error: any) {
+    logger.warn(`Invidious instance check failed: ${error.message}`);
+  }
+}
+
 // YouTube Search Proxy
 app.get("/api/youtube/search", async (req, res) => {
   const { q } = req.query as { q: string };
@@ -129,27 +175,51 @@ app.get("/api/youtube/search", async (req, res) => {
 
     // 2. Call YouTube API
     console.log(`[YouTube API] Fetching from API for: "${normalizedQuery}"`);
-    const response = await axios.get(
-      `https://www.googleapis.com/youtube/v3/search`,
-      {
-        params: {
-          part: "snippet",
-          q,
-          type: "video",
-          maxResults: 10,
-          key: API_KEY,
-        },
-      }
-    );
+    let items = [];
+    let usedInvidious = false;
 
-    const items = response.data.items.map((item: any) => ({
-      videoId: item.id.videoId,
-      title: item.snippet.title,
-      thumbnail: item.snippet.thumbnails.medium.url,
-    }));
+    try {
+      const response = await axios.get(
+        `https://www.googleapis.com/youtube/v3/search`,
+        {
+          params: {
+            part: "snippet",
+            q,
+            type: "video",
+            maxResults: 10,
+            key: API_KEY,
+          },
+          timeout: 5000,
+        }
+      );
+
+      items = response.data.items.map((item: any) => ({
+        videoId: item.id.videoId,
+        title: item.snippet.title,
+        thumbnail: item.snippet.thumbnails.medium.url,
+      }));
+    } catch (error: any) {
+      const errorData = error.response?.data;
+      const isQuotaError = errorData?.error?.code === 403 || errorData?.error?.message?.includes("quota");
+      
+      console.error("YouTube Search Error:", isQuotaError ? "Quota Exceeded" : (errorData || error.message));
+
+      if (isQuotaError || error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+        console.log(`[YouTube API] Quota exceeded or connection failed, trying Invidious...`);
+        try {
+          items = await searchInvidious(q);
+          usedInvidious = true;
+        } catch (invError) {
+          console.error("Invidious fallback also failed.");
+          throw error; // Re-throw original YouTube error to trigger historical fallback
+        }
+      } else {
+        throw error;
+      }
+    }
 
     // 3. Save to Cache
-    if (prismaAny.searchCache) {
+    if (items.length > 0 && prismaAny.searchCache) {
       await prismaAny.searchCache.upsert({
         where: { query: normalizedQuery },
         update: {
@@ -165,11 +235,6 @@ app.get("/api/youtube/search", async (req, res) => {
 
     res.json(items);
   } catch (error: any) {
-    const errorData = error.response?.data;
-    const isQuotaError = errorData?.error?.code === 403 || errorData?.error?.message?.includes("quota");
-    
-    console.error("YouTube Search Error:", isQuotaError ? "Quota Exceeded" : (errorData || error.message));
-
     // 4. Fallback to Historical Search on Error
     try {
       const historyItems = await prisma.request.findMany({
@@ -195,15 +260,43 @@ app.get("/api/youtube/search", async (req, res) => {
       console.error("Fallback Search Error:", fallbackErr);
     }
 
-    res.status(500).json({ error: isQuotaError ? "YouTube API Quota Exceeded. Try searching for a song already in history." : "Failed to fetch from YouTube" });
+    res.status(500).json({ error: "Failed to fetch from YouTube or Invidious" });
   }
 });
 
 // Queue Management via Socket.io
 io.on("connection", async (socket) => {
-  const clientIp = socket.handshake.address;
-  console.log("New client connected:", socket.id, "from", clientIp);
+  const clientIp = socket.handshake.headers["x-forwarded-for"] || socket.handshake.address;
+  const ipString = Array.isArray(clientIp) ? clientIp[0] : (clientIp as string);
+
+  console.log("New client connected:", socket.id, "from", ipString);
+
+  // Check if banned
+  const isBanned = await prisma.bannedIp.findUnique({ where: { ip: ipString } });
+  if (isBanned) {
+    if (!isBanned.expiresAt || isBanned.expiresAt > new Date()) {
+      console.log(`Banned IP tried to connect: ${ipString}`);
+      socket.emit("error-toast", "Your IP is banned.");
+      socket.disconnect();
+      return;
+    } else {
+      // Auto-unban if expired
+      await prisma.bannedIp.delete({ where: { ip: ipString } });
+    }
+  }
+
   socket.emit("settings-update", appSettings);
+
+  // Admin Guard Wrapper
+  const adminGuard = (handler: Function) => {
+    return (...args: any[]) => {
+      if ((socket as any).isAdmin) {
+        return handler(...args);
+      } else {
+        socket.emit("error-toast", "Unauthorized: Admin access required.");
+      }
+    };
+  };
 
   // Send initial queue
   const queue = await prisma.request.findMany({
@@ -238,6 +331,7 @@ io.on("connection", async (socket) => {
   socket.on("admin-auth", (password: string) => {
     const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin";
     if (password === ADMIN_PASSWORD) {
+      (socket as any).isAdmin = true;
       socket.emit("auth-success");
     } else {
       socket.emit("error-toast", "Invalid Admin Password");
@@ -289,6 +383,7 @@ io.on("connection", async (socket) => {
           title,
           thumbnail,
           requesterName: requesterName || "anonymous",
+          requesterIp: ipString,
         },
       });
 
@@ -331,10 +426,30 @@ io.on("connection", async (socket) => {
 
   socket.on("vote-song", async (requestId) => {
     try {
-      await prisma.request.update({
-        where: { id: requestId },
-        data: { votes: { increment: 1 } }
+      // Check for duplicate vote
+      const existingVote = await prisma.vote.findUnique({
+        where: {
+          requestId_ip: {
+            requestId,
+            ip: ipString,
+          },
+        },
       });
+
+      if (existingVote) {
+        return socket.emit("error-toast", "You have already voted for this song.");
+      }
+
+      await prisma.$transaction([
+        prisma.vote.create({
+          data: { requestId, ip: ipString },
+        }),
+        prisma.request.update({
+          where: { id: requestId },
+          data: { votes: { increment: 1 } },
+        }),
+      ]);
+
       const updatedQueue = await prisma.request.findMany({
         where: { status: "pending" },
         orderBy: [
@@ -348,13 +463,13 @@ io.on("connection", async (socket) => {
     }
   });
 
-  socket.on("admin-player-state", (state) => {
+  socket.on("admin-player-state", adminGuard((state: any) => {
     // state: { videoId, title, thumbnail, playing, currentTime }
     currentPlayerState = state;
     socket.broadcast.emit("player-state-sync", state);
-  });
-
-  socket.on("admin-skip", async () => {
+  }));
+  
+  socket.on("admin-skip", adminGuard(async () => {
     const current = await prisma.request.findFirst({
       where: { status: "playing" },
     });
@@ -364,12 +479,15 @@ io.on("connection", async (socket) => {
         data: { status: "played" },
       });
     }
-
+  
     const next = await prisma.request.findFirst({
       where: { status: "pending" },
-      orderBy: { timestamp: "asc" },
+      orderBy: [
+        { votes: "desc" },
+        { timestamp: "asc" }
+      ],
     });
-
+  
     if (next) {
       await prisma.request.update({
         where: { id: next.id },
@@ -386,7 +504,7 @@ io.on("connection", async (socket) => {
     } else {
       currentPlayerState = null;
     }
-
+  
     const updatedQueue = await prisma.request.findMany({
       where: { status: "pending" },
       orderBy: [
@@ -397,9 +515,9 @@ io.on("connection", async (socket) => {
     io.emit("queue-update", updatedQueue);
     io.emit("player-state-sync", currentPlayerState);
     io.emit("active-track-update", next);
-  });
-
-  socket.on("admin-delete-request", async (requestId) => {
+  }));
+  
+  socket.on("admin-delete-request", adminGuard(async (requestId: string) => {
     await prisma.request.delete({ where: { id: requestId } });
     const updatedQueue = await prisma.request.findMany({
       where: { status: "pending" },
@@ -409,12 +527,9 @@ io.on("connection", async (socket) => {
       ],
     });
     io.emit("queue-update", updatedQueue);
-  });
-
-  socket.on("admin-reorder-queue", async (newQueueIds: string[]) => {
-    // Simple way for the sake of demo: we don't have a 'priority' field, 
-    // so we'd need to update timestamps or add a 'rank' field.
-    // Let's just assume we update the timestamps in bulk for this demo.
+  }));
+  
+  socket.on("admin-reorder-queue", adminGuard(async (newQueueIds: string[]) => {
     for (let i = 0; i < newQueueIds.length; i++) {
         await prisma.request.update({
             where: { id: newQueueIds[i] },
@@ -429,19 +544,23 @@ io.on("connection", async (socket) => {
       ],
     });
     io.emit("queue-update", updatedQueue);
-  });
-
-  socket.on("admin-clear-queue", async () => {
+  }));
+  
+  socket.on("admin-clear-queue", adminGuard(async () => {
     await prisma.request.deleteMany({ where: { status: "pending" } });
     io.emit("queue-update", []);
-  });
-
-  socket.on("admin-ban-user", async (ip) => {
-      // Banning logic disabled as requesterIp is removed
-      socket.emit("error-toast", "IP banning is currently disabled.");
-  });
-
-  socket.on("admin-ban-video", async (data: { videoId: string, title: string }) => {
+  }));
+  
+  socket.on("admin-ban-user", adminGuard(async (ipToBan: string) => {
+      await prisma.bannedIp.upsert({
+          where: { ip: ipToBan },
+          update: {},
+          create: { ip: ipToBan, reason: "Banned by Admin" }
+      });
+      socket.emit("success-toast", `IP ${ipToBan} has been banned.`);
+  }));
+  
+  socket.on("admin-ban-video", adminGuard(async (data: { videoId: string, title: string }) => {
       await prisma.blacklist.upsert({
           where: { videoId: data.videoId },
           update: {},
@@ -460,9 +579,9 @@ io.on("connection", async (socket) => {
       });
       io.emit("queue-update", updatedQueue);
       socket.emit("success-toast", "Video has been blacklisted.");
-  });
-
-  socket.on("admin-add-song", async (data) => {
+  }));
+  
+  socket.on("admin-add-song", adminGuard(async (data: any) => {
     const { videoId, title, thumbnail } = data;
     try {
       await prisma.request.create({
@@ -471,9 +590,10 @@ io.on("connection", async (socket) => {
           title,
           thumbnail,
           requesterName: "Admin",
+          requesterIp: ipString,
         },
       });
-
+  
       const updatedQueue = await prisma.request.findMany({
         where: { status: "pending" },
         orderBy: [
@@ -487,28 +607,27 @@ io.on("connection", async (socket) => {
       console.error(err);
       socket.emit("error-toast", "Failed to add song.");
     }
-  });
-
-  socket.on("admin-play-now", async (data) => {
+  }));
+  
+  socket.on("admin-play-now", adminGuard(async (data: any) => {
     const { videoId, title, thumbnail } = data;
     try {
-      // Mark current as played
       await prisma.request.updateMany({
           where: { status: "playing" },
           data: { status: "played" }
       });
-
-      // Create new as playing
+  
       const newTrack = await prisma.request.create({
           data: {
           videoId,
           title,
           thumbnail,
           status: "playing",
-          requesterName: "Admin"
+          requesterName: "Admin",
+          requesterIp: ipString,
       }
     });
-
+  
       currentPlayerState = {
           videoId: newTrack.videoId,
           title: newTrack.title,
@@ -516,7 +635,7 @@ io.on("connection", async (socket) => {
           currentTime: 0,
           requesterName: newTrack.requesterName,
       };
-
+  
       io.emit("active-track-update", newTrack);
       io.emit("player-state-sync", currentPlayerState);
       socket.emit("success-toast", "Playing now!");
@@ -524,26 +643,26 @@ io.on("connection", async (socket) => {
       console.error(err);
       socket.emit("error-toast", "Failed to play now.");
     }
-  });
-
-  socket.on("admin-get-history", async () => {
+  }));
+  
+  socket.on("admin-get-history", adminGuard(async () => {
     const history = await prisma.request.findMany({
       where: { status: "played" },
       orderBy: { timestamp: "desc" },
       take: 50
     });
     socket.emit("history-update", history);
-  });
-
-  socket.on("admin-update-settings", (settings: Partial<AppSettings>) => {
+  }));
+  
+  socket.on("admin-update-settings", adminGuard((settings: Partial<AppSettings>) => {
     const nextSettings = sanitizeSettings(settings);
-
+  
     Object.assign(appSettings, nextSettings);
     persistSettings(nextSettings).catch((error) => {
       console.error("Failed to persist settings:", error);
     });
     io.emit("settings-update", appSettings);
-  });
+  }));
 
   socket.on("disconnect", () => {
     console.log("Client disconnected:", socket.id);
@@ -568,7 +687,11 @@ async function startServer() {
   }
 
   httpServer.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    logger.info(`Server running on http://0.0.0.0:${PORT}`);
+    
+    // Start health checks
+    checkInvidiousHealth();
+    setInterval(checkInvidiousHealth, 10 * 60 * 1000); // Every 10 minutes
   });
 }
 
