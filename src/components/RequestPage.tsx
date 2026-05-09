@@ -33,6 +33,13 @@ interface AppSettings {
   defaultVolume: number;
 }
 
+const formatTime = (seconds: number) => {
+  if (!seconds || isNaN(seconds)) return "0:00";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+};
+
 export default function RequestPage({ socket }: RequestPageProps) {
   const [query, setQuery] = useState('');
   const [username, setUsername] = useState('');
@@ -290,49 +297,78 @@ export default function RequestPage({ socket }: RequestPageProps) {
 
         <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
           {/* Now Playing */}
-          <section className={`space-y-4 lg:space-y-6 ${mobileTab === 'playing' ? 'block' : 'hidden lg:block'}`}>
+          <section className={`space-y-4 lg:space-y-6 ${mobileTab === 'playing' ? 'block animate-in fade-in slide-in-from-bottom-2 duration-300' : 'hidden lg:block'}`}>
             <div className="hidden lg:flex items-center gap-2 text-xs lg:text-sm font-bold uppercase tracking-widest text-white/40">
               <Play className="w-4 h-4" /> Now Playing
             </div>
 
-            <div className="bg-[#151619] rounded-[2rem] border border-white/10 p-5 lg:p-8 overflow-hidden relative shadow-2xl group">
+            <div className="bg-[#151619] rounded-[2rem] border border-white/10 p-5 lg:p-8 overflow-hidden relative shadow-2xl group transition-all">
               {/* Background Glow */}
               {nowPlaying && (
-                <div className="absolute inset-0 opacity-10 blur-3xl -z-10 group-hover:opacity-20 transition-opacity">
+                <div className="absolute inset-0 opacity-10 blur-3xl -z-10 group-hover:opacity-20 transition-opacity duration-1000">
                   <img src={nowPlaying.thumbnail} alt="" className="w-full h-full object-cover scale-150" />
                 </div>
               )}
 
               {nowPlaying ? (
-                <div className="flex flex-col sm:flex-row items-center gap-6">
-                  <div className="w-full sm:w-1/3 aspect-video rounded-2xl overflow-hidden bg-black/40 shrink-0 shadow-2xl ring-1 ring-white/10 relative">
+                <div className="flex flex-col gap-5 lg:gap-6">
+                  <div className="w-full aspect-video rounded-2xl overflow-hidden bg-black/40 shrink-0 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-1 ring-white/10 relative group/image">
                     <img
                       src={nowPlaying.thumbnail || `https://img.youtube.com/vi/${nowPlaying.videoId}/maxresdefault.jpg`}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover/image:scale-105"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${nowPlaying.videoId}/mqdefault.jpg`;
                       }}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  </div>
-                  <div className="flex-1 min-w-0 text-center sm:text-left space-y-4">
-                    <h3 className="text-xl lg:text-2xl font-black line-clamp-2 leading-tight uppercase tracking-tight italic text-white drop-shadow-lg">{nowPlaying.title || 'Loading...'}</h3>
-                    <div className="flex flex-wrap items-center gap-3 justify-center sm:justify-start">
-                      <div className="text-[10px] lg:text-xs font-black text-orange-500 bg-orange-500/10 border border-orange-500/20 px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
-                        Live Now
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 lg:opacity-80" />
+                    
+                    {nowPlaying.playing && (
+                      <div className="absolute bottom-4 left-4 flex items-end gap-1">
+                        <motion.div animate={{ height: [8, 20, 8] }} transition={{ repeat: Infinity, duration: 0.8 }} className="w-1.5 bg-orange-500 rounded-full" />
+                        <motion.div animate={{ height: [12, 24, 12] }} transition={{ repeat: Infinity, duration: 0.8, delay: 0.2 }} className="w-1.5 bg-orange-500 rounded-full" />
+                        <motion.div animate={{ height: [8, 16, 8] }} transition={{ repeat: Infinity, duration: 0.8, delay: 0.4 }} className="w-1.5 bg-orange-500 rounded-full" />
                       </div>
-                      <div className={`text-[10px] lg:text-xs font-bold ${nowPlaying.requesterName === 'Admin' ? 'text-orange-500 bg-orange-500/10 border-orange-500/20' : 'text-white/40 bg-white/5 border-white/10'} border px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-2`}>
-                        <User className="w-3 h-3" />
-                        {nowPlaying.requesterName === 'Admin' ? 'Added by Admin' : (nowPlaying.requesterName || 'anonymous')}
+                    )}
+                  </div>
+                  
+                  <div className="flex-1 w-full min-w-0 flex flex-col justify-center space-y-4 lg:space-y-5 text-left">
+                    <div className="space-y-2.5">
+                      <h3 className="text-xl lg:text-2xl font-black line-clamp-2 leading-tight uppercase tracking-tight italic text-white drop-shadow-lg transition-colors group-hover:text-orange-500/90">
+                        {nowPlaying.title || 'Loading...'}
+                      </h3>
+                      
+                      <div className="flex flex-wrap items-center gap-2 lg:gap-3 justify-start">
+                        <div className="text-[10px] lg:text-xs font-black text-orange-500 bg-orange-500/10 border border-orange-500/20 px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
+                          Live Now
+                        </div>
+                        <div className={`text-[10px] lg:text-xs font-bold ${nowPlaying.requesterName === 'Admin' ? 'text-orange-500 bg-orange-500/10 border-orange-500/20' : 'text-white/40 bg-white/5 border-white/10'} border px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-2`}>
+                          <User className="w-3 h-3" />
+                          {nowPlaying.requesterName === 'Admin' ? 'Added by Admin' : (nowPlaying.requesterName || 'anonymous')}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="space-y-2 pt-2 lg:pt-4">
+                      <div className="h-1.5 lg:h-2 bg-white/5 rounded-full overflow-hidden relative cursor-not-allowed">
+                        <div 
+                          className="absolute top-0 left-0 h-full bg-gradient-to-r from-orange-600 to-orange-400 shadow-[0_0_10px_rgba(249,115,22,0.5)] transition-all duration-1000 ease-linear rounded-full"
+                          style={{ width: `${Math.min(100, ((nowPlaying.currentTime || 0) / (nowPlaying.duration || 1)) * 100)}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-[10px] lg:text-xs font-bold text-white/40 uppercase tracking-widest">
+                        <span className="font-mono">{formatTime(nowPlaying.currentTime)}</span>
+                        <span className="font-mono">{formatTime(nowPlaying.duration)}</span>
                       </div>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="aspect-video rounded-xl lg:rounded-2xl bg-white/5 flex flex-col items-center justify-center text-white/20">
-                  <Music className="w-10 h-10 lg:w-12 lg:h-12 mb-4 animate-pulse" />
-                  <p className="text-xs lg:text-sm font-medium">Nothing is playing right now</p>
+                <div className="aspect-video rounded-xl lg:rounded-2xl bg-white/[0.02] border border-white/5 flex flex-col items-center justify-center text-white/20 transition-all hover:bg-white/[0.04]">
+                  <Music className="w-10 h-10 lg:w-16 lg:h-16 mb-4 opacity-50" />
+                  <p className="text-xs lg:text-sm font-black uppercase tracking-widest">System Idle</p>
+                  <p className="text-[10px] lg:text-xs font-medium text-white/10 mt-1">Awaiting playback sequence</p>
                 </div>
               )}
             </div>

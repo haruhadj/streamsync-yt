@@ -55,7 +55,7 @@ interface VideoResult {
   thumbnail: string;
 }
 
-function SortableItem({ item, onDelete, onBanVideo, onBanUser }: {
+function SortableItem({ item, onDelete, onBanVideo }: {
   item: QueueItem;
   onDelete: (id: string) => void;
   onBanVideo: (videoId: string, title: string) => void;
@@ -182,6 +182,14 @@ export default function AdminPage({ socket }: AdminPageProps) {
 
     socket.on('active-track-update', (track: QueueItem | null) => {
       setCurrentVideo(track);
+      if (track?.videoId && playerRef.current) {
+        // Bypass React's background render throttling by calling the player directly
+        try {
+          playerRef.current.loadVideoById(track.videoId);
+        } catch (err) {
+          console.error('Failed to imperatively load video:', err);
+        }
+      }
     });
 
     socket.on('history-update', (updatedHistory: QueueItem[]) => {
@@ -346,6 +354,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
 
     const interval = setInterval(async () => {
       const curr = (await playerRef.current?.getCurrentTime?.()) ?? 0;
+      const duration = (await playerRef.current?.getDuration?.()) ?? 0;
       socket.emit('admin-player-state', {
         videoId: currentVideo.videoId,
         title: currentVideo.title,
@@ -353,6 +362,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
         requesterName: currentVideo.requesterName,
         playing: isPlaying,
         currentTime: curr,
+        duration: duration,
       });
     }, 1000);
 
@@ -366,12 +376,18 @@ export default function AdminPage({ socket }: AdminPageProps) {
   };
 
   const handlePlayerStateChange = (event: any) => {
-    if (event.data === 0) {
+    const state = event.data;
+    if (state === 0) {
       handleEnded();
-    } else if (event.data === 1) {
+    } else if (state === 1) {
       setIsPlaying(true);
-    } else if (event.data === 2) {
+    } else if (state === 2) {
       setIsPlaying(false);
+    } else if (state === -1 || state === 5) {
+      // Force play in case background tab throttling leaves it unstarted or cued
+      try {
+        event.target.playVideo();
+      } catch (e) {}
     }
   };
 
@@ -455,7 +471,6 @@ export default function AdminPage({ socket }: AdminPageProps) {
         <div className="bg-black aspect-video rounded-[1.5rem] lg:rounded-[2.5rem] overflow-hidden border border-white/10 relative shadow-2xl shadow-orange-500/5">
           {currentVideo?.videoId ? (
             <YouTube
-              key={currentVideo.videoId}
               videoId={currentVideo.videoId}
               iframeClassName="w-full h-full"
               className="w-full h-full"

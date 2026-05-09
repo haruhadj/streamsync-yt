@@ -47,6 +47,7 @@ interface PlayerState {
   thumbnail: string;
   playing: boolean;
   currentTime: number;
+  duration?: number;
   requesterName?: string;
 }
 
@@ -323,6 +324,7 @@ io.on("connection", async (socket) => {
       thumbnail: activeTrack.thumbnail || "",
       playing: true,
       currentTime: 0,
+      duration: 0,
       requesterName: activeTrack.requesterName,
     };
     socket.emit("player-state-sync", currentPlayerState);
@@ -400,8 +402,10 @@ io.on("connection", async (socket) => {
           currentPlayerState = {
             videoId: newRequest.videoId,
             title: newRequest.title,
+            thumbnail: newRequest.thumbnail || "",
             playing: true,
             currentTime: 0,
+            duration: 0,
             requesterName: newRequest.requesterName,
           };
           io.emit("active-track-update", newRequest);
@@ -499,6 +503,7 @@ io.on("connection", async (socket) => {
         thumbnail: next.thumbnail || "",
         playing: true,
         currentTime: 0,
+        duration: 0,
         requesterName: next.requesterName,
       };
     } else {
@@ -631,8 +636,10 @@ io.on("connection", async (socket) => {
       currentPlayerState = {
           videoId: newTrack.videoId,
           title: newTrack.title,
+          thumbnail: newTrack.thumbnail || "",
           playing: true,
           currentTime: 0,
+          duration: 0,
           requesterName: newTrack.requesterName,
       };
   
