@@ -122,6 +122,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
   const [passwordInput, setPasswordInput] = useState('');
   const [activeTab, setActiveTab] = useState<'main' | 'history'>('main');
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [history, setHistory] = useState<QueueItem[]>([]);
   const [currentVideo, setCurrentVideo] = useState<QueueItem | null>(null);
@@ -232,10 +233,10 @@ export default function AdminPage({ socket }: AdminPageProps) {
   }, [socket, isAuthenticated, isSocketAuthenticated]);
 
   useEffect(() => {
-    if (activeTab === 'history' && isAuthenticated) {
+    if (isHistoryModalOpen && isAuthenticated) {
       socket.emit('admin-get-history');
     }
-  }, [activeTab, socket, isAuthenticated]);
+  }, [isHistoryModalOpen, socket, isAuthenticated]);
 
   const handleAuth = (e: React.FormEvent) => {
     e.preventDefault();
@@ -432,13 +433,13 @@ export default function AdminPage({ socket }: AdminPageProps) {
             </button>
             <button
               onClick={() => setIsSearchModalOpen(true)}
-              className="px-4 lg:px-6 py-2.5 font-bold text-xs uppercase tracking-widest rounded-xl transition-all whitespace-nowrap text-white/40 hover:bg-white/5"
+              className={`px-4 lg:px-6 py-2.5 font-bold text-xs uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${isSearchModalOpen ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-white/40 hover:bg-white/5'}`}
             >
               Search
             </button>
             <button
-              onClick={() => setActiveTab('history')}
-              className={`px-4 lg:px-6 py-2.5 font-bold text-xs uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${activeTab === 'history' ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-white/40 hover:bg-white/5'}`}
+              onClick={() => setIsHistoryModalOpen(true)}
+              className={`px-4 lg:px-6 py-2.5 font-bold text-xs uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${isHistoryModalOpen ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-white/40 hover:bg-white/5'}`}
             >
               History
             </button>
@@ -690,48 +691,106 @@ export default function AdminPage({ socket }: AdminPageProps) {
         )}
       </AnimatePresence>
 
-        {activeTab === 'history' && (
-          <div className="bg-[#151619] border border-white/10 rounded-[1.5rem] lg:rounded-[2.5rem] p-6 lg:p-8 space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg lg:text-xl font-bold flex items-center gap-3 italic">
-                <History className="w-6 h-6 text-orange-500" />
-                Playback History
-              </h3>
-              <button onClick={() => setActiveTab('main')} className="p-2 hover:bg-white/5 rounded-full transition-all">
-                <Plus className="w-5 h-5 rotate-45 text-white/20" />
-              </button>
-            </div>
-
-            <div className="grid sm:grid-cols-2 gap-4 max-h-[400px] lg:max-h-[600px] overflow-y-auto custom-scrollbar pr-2">
-              {history.length > 0 ? (
-                history.map((item) => (
-                  <div key={item.id} className="flex items-center gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-3xl group">
-                    <img src={item.thumbnail} alt="" className="w-16 h-10 object-cover rounded-lg opacity-40" />
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-bold truncate text-sm text-white/60 italic">{item.title}</h4>
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          onClick={() => handlePlayNow({ videoId: item.videoId, title: item.title, thumbnail: item.thumbnail })}
-                          className="p-1.5 text-white/20 hover:text-white transition-colors"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleAdminAdd({ videoId: item.videoId, title: item.title, thumbnail: item.thumbnail })}
-                          className="p-1.5 text-white/20 hover:text-orange-500 transition-colors"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
+      <AnimatePresence>
+        {isHistoryModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsHistoryModalOpen(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-4xl bg-[#151619] border border-white/10 rounded-[2rem] lg:rounded-[3rem] p-6 lg:p-10 space-y-8 shadow-2xl overflow-hidden"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 lg:w-12 lg:h-12 bg-orange-500/10 rounded-xl flex items-center justify-center">
+                    <History className="w-5 h-5 lg:w-6 lg:h-6 text-orange-500" />
                   </div>
-                ))
-              ) : (
-                <div className="col-span-2 py-20 text-center text-white/20 italic">No playback history yet</div>
-              )}
-            </div>
+                  <div>
+                    <h3 className="text-xl lg:text-3xl font-bold italic leading-tight">Playback History</h3>
+                    <p className="text-xs lg:text-sm text-white/40 uppercase font-black tracking-widest">Review past sessions</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsHistoryModalOpen(false)} 
+                  className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all group"
+                >
+                  <Plus className="w-6 h-6 rotate-45 text-white/40 group-hover:text-white transition-colors" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6 max-h-[50vh] lg:max-h-[60vh] overflow-y-auto custom-scrollbar pr-4 -mr-4">
+                <AnimatePresence mode="popLayout">
+                  {history.length > 0 ? (
+                    history.map((item, index) => (
+                      <motion.div 
+                        key={item.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        transition={{ delay: index * 0.03 }}
+                        className="flex items-center gap-4 p-4 bg-white/[0.03] border border-white/5 rounded-[1.5rem] group hover:border-orange-500/30 hover:bg-white/[0.05] transition-all relative overflow-hidden"
+                      >
+                        <div className="relative shrink-0 overflow-hidden rounded-xl shadow-lg">
+                          <img 
+                            src={item.thumbnail} 
+                            alt="" 
+                            className="w-24 lg:w-32 h-14 lg:h-18 object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500" 
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <RotateCcw className="w-6 h-6 text-white" />
+                          </div>
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold truncate text-sm lg:text-base text-white/80 italic group-hover:text-white transition-colors mb-3">
+                            {item.title}
+                          </h4>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handlePlayNow({ videoId: item.videoId, title: item.title, thumbnail: item.thumbnail })}
+                              className="flex-1 py-2 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg"
+                            >
+                              Play Now
+                            </button>
+                            <button
+                              onClick={() => handleAdminAdd({ videoId: item.videoId, title: item.title, thumbnail: item.thumbnail })}
+                              className="flex-1 py-2 bg-orange-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-orange-500/20"
+                            >
+                              Add Queue
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))
+                  ) : (
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="col-span-1 sm:col-span-2 py-20 flex flex-col items-center justify-center text-center space-y-4"
+                    >
+                      <div className="w-20 h-20 bg-white/[0.02] rounded-full flex items-center justify-center">
+                        <History className="w-10 h-10 text-white/10 animate-pulse" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-white/20 text-lg italic font-medium">No playback history yet</p>
+                        <p className="text-xs uppercase tracking-widest text-white/5 font-black">Your journey starts here</p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
           </div>
         )}
+      </AnimatePresence>
       </div>
     </div>
   );
