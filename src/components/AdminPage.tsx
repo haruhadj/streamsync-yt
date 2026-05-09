@@ -143,6 +143,49 @@ export default function AdminPage({ socket }: AdminPageProps) {
   });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const playerRef = useRef<any>(null);
+  const lastSkippedId = useRef<string | null>(null);
+
+  // Keep-alive hack: Play nearly silent audio to prevent background throttling
+  useEffect(() => {
+    let ctx: AudioContext | null = null;
+    let osc: OscillatorNode | null = null;
+
+    const startKeepAlive = () => {
+      if (ctx) return;
+      try {
+        ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        gain.gain.value = 0.001; // nearly silent
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+      } catch (e) {
+        console.error("Keep-alive audio failed:", e);
+      }
+    };
+
+    // Start on first interaction or when player is ready
+    window.addEventListener('click', startKeepAlive, { once: true });
+    return () => {
+      osc?.stop();
+      ctx?.close();
+    };
+  }, []);
+
+  // Media Session API for background control
+  useEffect(() => {
+    if ('mediaSession' in navigator && currentVideo) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentVideo.title,
+        artist: currentVideo.requesterName || 'StreamSync',
+        artwork: [{ src: currentVideo.thumbnail || '', sizes: '512x512' }]
+      });
+      navigator.mediaSession.setActionHandler('play', () => playerRef.current?.playVideo());
+      navigator.mediaSession.setActionHandler('pause', () => playerRef.current?.pauseVideo());
+      navigator.mediaSession.setActionHandler('nexttrack', () => handleSkip());
+    }
+  }, [currentVideo]);
 
   useEffect(() => {
     const auth = localStorage.getItem('adminAuth') === 'true';
@@ -363,8 +406,18 @@ export default function AdminPage({ socket }: AdminPageProps) {
     if (!currentVideo || !isSocketAuthenticated) return;
 
     const interval = setInterval(async () => {
+      if (!playerRef.current) return;
+      
       const curr = (await playerRef.current?.getCurrentTime?.()) ?? 0;
       const duration = (await playerRef.current?.getDuration?.()) ?? 0;
+
+      // Manual end-of-song check for background tabs
+      if (duration > 0 && curr >= duration - 1.5 && isPlaying && lastSkippedId.current !== currentVideo.id) {
+        lastSkippedId.current = currentVideo.id;
+        handleEnded();
+        return;
+      }
+
       socket.emit('admin-player-state', {
         videoId: currentVideo.videoId,
         title: currentVideo.title,
