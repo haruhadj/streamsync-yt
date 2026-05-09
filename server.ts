@@ -97,14 +97,38 @@ app.use(express.json());
 
 // YouTube Search Proxy
 app.get("/api/youtube/search", async (req, res) => {
-  const { q } = req.query;
+  const { q } = req.query as { q: string };
   const API_KEY = process.env.YOUTUBE_API_KEY;
 
   if (!API_KEY) {
     return res.status(500).json({ error: "YOUTUBE_API_KEY is not configured" });
   }
 
+  if (!q || q.trim().length === 0) {
+    return res.json([]);
+  }
+
+  const normalizedQuery = q.toLowerCase().trim();
+
   try {
+    // 1. Check Cache
+    if (prismaAny.searchCache) {
+      const cacheEntry = await prismaAny.searchCache.findUnique({
+        where: { query: normalizedQuery }
+      });
+
+      if (cacheEntry) {
+        const age = Date.now() - new Date(cacheEntry.timestamp).getTime();
+        const oneDay = 24 * 60 * 60 * 1000;
+        if (age < oneDay) {
+          console.log(`[YouTube API] Cache hit for: "${normalizedQuery}"`);
+          return res.json(JSON.parse(cacheEntry.results));
+        }
+      }
+    }
+
+    // 2. Call YouTube API
+    console.log(`[YouTube API] Fetching from API for: "${normalizedQuery}"`);
     const response = await axios.get(
       `https://www.googleapis.com/youtube/v3/search`,
       {
@@ -124,10 +148,54 @@ app.get("/api/youtube/search", async (req, res) => {
       thumbnail: item.snippet.thumbnails.medium.url,
     }));
 
+    // 3. Save to Cache
+    if (prismaAny.searchCache) {
+      await prismaAny.searchCache.upsert({
+        where: { query: normalizedQuery },
+        update: {
+          results: JSON.stringify(items),
+          timestamp: new Date()
+        },
+        create: {
+          query: normalizedQuery,
+          results: JSON.stringify(items)
+        }
+      }).catch(err => console.error("Cache Save Error:", err));
+    }
+
     res.json(items);
   } catch (error: any) {
-    console.error("YouTube Search Error:", error.response?.data || error.message);
-    res.status(500).json({ error: "Failed to fetch from YouTube" });
+    const errorData = error.response?.data;
+    const isQuotaError = errorData?.error?.code === 403 || errorData?.error?.message?.includes("quota");
+    
+    console.error("YouTube Search Error:", isQuotaError ? "Quota Exceeded" : (errorData || error.message));
+
+    // 4. Fallback to Historical Search on Error
+    try {
+      const historyItems = await prisma.request.findMany({
+        where: {
+          OR: [
+            { title: { contains: q } },
+            { videoId: q }
+          ]
+        },
+        take: 10,
+        distinct: ['videoId']
+      });
+
+      if (historyItems.length > 0) {
+        console.log(`[YouTube API] Returning ${historyItems.length} items from history fallback.`);
+        return res.json(historyItems.map(h => ({
+          videoId: h.videoId,
+          title: h.title,
+          thumbnail: h.thumbnail
+        })));
+      }
+    } catch (fallbackErr) {
+      console.error("Fallback Search Error:", fallbackErr);
+    }
+
+    res.status(500).json({ error: isQuotaError ? "YouTube API Quota Exceeded. Try searching for a song already in history." : "Failed to fetch from YouTube" });
   }
 });
 

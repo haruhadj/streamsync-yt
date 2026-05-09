@@ -38,3 +38,9 @@ model AppSetting {
   value     String
   updatedAt DateTime @updatedAt
 }
+
+model SearchCache {
+  query     String   @id
+  results   String   // JSON stringified results
+  timestamp DateTime @default(now())
+}

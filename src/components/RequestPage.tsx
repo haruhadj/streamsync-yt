@@ -154,7 +154,7 @@ export default function RequestPage({ socket }: RequestPageProps) {
       } finally {
         setIsSearching(false);
       }
-    }, 500),
+    }, 800),
     []
   );
 

@@ -289,7 +289,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
       } finally {
         setIsSearching(false);
       }
-    }, 500),
+    }, 800),
     []
   );
 
