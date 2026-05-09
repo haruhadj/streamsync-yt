@@ -118,6 +118,7 @@ function SortableItem({ item, onDelete, onBanVideo, onBanUser }: {
 
 export default function AdminPage({ socket }: AdminPageProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isSocketAuthenticated, setIsSocketAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [activeTab, setActiveTab] = useState<'main' | 'history'>('main');
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
@@ -142,8 +143,13 @@ export default function AdminPage({ socket }: AdminPageProps) {
   const playerRef = useRef<any>(null);
 
   useEffect(() => {
-    if (localStorage.getItem('adminAuth') === 'true') {
+    const auth = localStorage.getItem('adminAuth') === 'true';
+    const savedPassword = localStorage.getItem('adminPassword');
+    if (auth) {
       setIsAuthenticated(true);
+      if (savedPassword) {
+        setPasswordInput(savedPassword);
+      }
     }
   }, []);
 
@@ -192,8 +198,17 @@ export default function AdminPage({ socket }: AdminPageProps) {
 
     socket.on('auth-success', () => {
       setIsAuthenticated(true);
+      setIsSocketAuthenticated(true);
       localStorage.setItem('adminAuth', 'true');
+      // Store the current password input for auto-reauth on refresh
+      if (passwordInput) {
+        localStorage.setItem('adminPassword', passwordInput);
+      }
       toast.success('Authenticated successfully');
+    });
+
+    socket.on('disconnect', () => {
+      setIsSocketAuthenticated(false);
     });
 
     return () => {
@@ -204,8 +219,17 @@ export default function AdminPage({ socket }: AdminPageProps) {
       socket.off('success-toast');
       socket.off('error-toast');
       socket.off('auth-success');
+      socket.off('disconnect');
     };
-  }, [socket]);
+  }, [socket, passwordInput]);
+
+  // Auto-authenticate on socket connection if we have a saved password
+  useEffect(() => {
+    const savedPassword = localStorage.getItem('adminPassword');
+    if (isAuthenticated && savedPassword && !isSocketAuthenticated) {
+      socket.emit('admin-auth', savedPassword);
+    }
+  }, [socket, isAuthenticated, isSocketAuthenticated]);
 
   useEffect(() => {
     if (activeTab === 'history' && isAuthenticated) {
@@ -220,7 +244,10 @@ export default function AdminPage({ socket }: AdminPageProps) {
 
   const handleLogout = () => {
     setIsAuthenticated(false);
+    setIsSocketAuthenticated(false);
     localStorage.removeItem('adminAuth');
+    localStorage.removeItem('adminPassword');
+    setPasswordInput('');
   };
 
   const handleEnded = () => {
@@ -314,7 +341,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
   }, [volume]);
 
   useEffect(() => {
-    if (!currentVideo) return;
+    if (!currentVideo || !isSocketAuthenticated) return;
 
     const interval = setInterval(async () => {
       const curr = (await playerRef.current?.getCurrentTime?.()) ?? 0;
@@ -329,7 +356,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [socket, currentVideo, isPlaying]);
+  }, [socket, currentVideo, isPlaying, isSocketAuthenticated]);
 
   const handlePlayerReady = (event: YouTubeEvent) => {
     playerRef.current = event.target;
