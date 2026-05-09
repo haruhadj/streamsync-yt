@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Socket } from 'socket.io-client';
 import axios from 'axios';
 import debounce from 'lodash.debounce';
-import { Search, Music, Clock, Play, User, ListMusic, Loader2, ThumbsUp } from 'lucide-react';
+import { Search, Music, Clock, Play, User, ListMusic, Loader2, ThumbsUp, History as HistoryIcon, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 
@@ -24,6 +24,7 @@ interface QueueItem {
   requesterName: string;
   timestamp: string;
   votes: number;
+  playCount?: number;
 }
 
 interface AppSettings {
@@ -46,6 +47,7 @@ export default function RequestPage({ socket }: RequestPageProps) {
   const [results, setResults] = useState<Video[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [history, setHistory] = useState<QueueItem[]>([]);
   const [nowPlaying, setNowPlaying] = useState<any>(null);
   const [cooldown, setCooldown] = useState(0);
   const [settings, setSettings] = useState<AppSettings>({
@@ -55,7 +57,8 @@ export default function RequestPage({ socket }: RequestPageProps) {
     defaultVolume: 0.5,
   });
   const [votedSongs, setVotedSongs] = useState<string[]>([]);
-  const [mobileTab, setMobileTab] = useState<'playing' | 'queue'>('playing');
+  const [mobileTab, setMobileTab] = useState<'playing' | 'queue' | 'history'>('playing');
+  const [rightTab, setRightTab] = useState<'queue' | 'history'>('queue');
 
   useEffect(() => {
     try {
@@ -76,8 +79,23 @@ export default function RequestPage({ socket }: RequestPageProps) {
 
   // Sync now playing and queue
   useEffect(() => {
+    socket.emit('get-history');
+
     socket.on('queue-update', (updatedQueue: QueueItem[]) => {
       setQueue(updatedQueue);
+    });
+
+    socket.on('history-update', (updatedHistory: QueueItem[]) => {
+      const grouped = new Map<string, QueueItem>();
+      updatedHistory.forEach(item => {
+        if (grouped.has(item.videoId)) {
+          const existing = grouped.get(item.videoId)!;
+          existing.playCount = (existing.playCount || 1) + 1;
+        } else {
+          grouped.set(item.videoId, { ...item, playCount: 1 });
+        }
+      });
+      setHistory(Array.from(grouped.values()));
     });
 
     socket.on('player-state-sync', (state) => {
@@ -100,6 +118,7 @@ export default function RequestPage({ socket }: RequestPageProps) {
 
     return () => {
       socket.off('queue-update');
+      socket.off('history-update');
       socket.off('player-state-sync');
       socket.off('success-toast');
       socket.off('error-toast');
@@ -293,11 +312,18 @@ export default function RequestPage({ socket }: RequestPageProps) {
             <ListMusic className="w-4 h-4" />
             Queue ({queue.length})
           </button>
+          <button
+            onClick={() => setMobileTab('history')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${mobileTab === 'history' ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-white/40'}`}
+          >
+            <HistoryIcon className="w-4 h-4" />
+            History
+          </button>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 min-w-0">
           {/* Now Playing */}
-          <section className={`space-y-4 lg:space-y-6 ${mobileTab === 'playing' ? 'block animate-in fade-in slide-in-from-bottom-2 duration-300' : 'hidden lg:block'}`}>
+          <section className={`space-y-4 lg:space-y-6 min-w-0 ${mobileTab === 'playing' ? 'block animate-in fade-in slide-in-from-bottom-2 duration-300' : 'hidden lg:block'}`}>
             <div className="hidden lg:flex items-center gap-2 text-xs lg:text-sm font-bold uppercase tracking-widest text-white/40">
               <Play className="w-4 h-4" /> Now Playing
             </div>
@@ -321,7 +347,7 @@ export default function RequestPage({ socket }: RequestPageProps) {
                       }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 lg:opacity-80" />
-                    
+
                     {nowPlaying.playing && (
                       <div className="absolute bottom-4 left-4 flex items-end gap-1">
                         <motion.div animate={{ height: [8, 20, 8] }} transition={{ repeat: Infinity, duration: 0.8 }} className="w-1.5 bg-orange-500 rounded-full" />
@@ -330,13 +356,13 @@ export default function RequestPage({ socket }: RequestPageProps) {
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="flex-1 w-full min-w-0 flex flex-col justify-center space-y-4 lg:space-y-5 text-left">
                     <div className="space-y-2.5">
                       <h3 className="text-xl lg:text-2xl font-black line-clamp-2 leading-tight uppercase tracking-tight italic text-white drop-shadow-lg transition-colors group-hover:text-orange-500/90">
                         {nowPlaying.title || 'Loading...'}
                       </h3>
-                      
+
                       <div className="flex flex-wrap items-center gap-2 lg:gap-3 justify-start">
                         <div className="text-[10px] lg:text-xs font-black text-orange-500 bg-orange-500/10 border border-orange-500/20 px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
@@ -352,7 +378,7 @@ export default function RequestPage({ socket }: RequestPageProps) {
                     {/* Progress Bar */}
                     <div className="space-y-2 pt-2 lg:pt-4">
                       <div className="h-1.5 lg:h-2 bg-white/5 rounded-full overflow-hidden relative cursor-not-allowed">
-                        <div 
+                        <div
                           className="absolute top-0 left-0 h-full bg-gradient-to-r from-orange-600 to-orange-400 shadow-[0_0_10px_rgba(249,115,22,0.5)] transition-all duration-1000 ease-linear rounded-full"
                           style={{ width: `${Math.min(100, ((nowPlaying.currentTime || 0) / (nowPlaying.duration || 1)) * 100)}%` }}
                         />
@@ -374,43 +400,49 @@ export default function RequestPage({ socket }: RequestPageProps) {
             </div>
           </section>
 
-          {/* Queue */}
-          <section className={`space-y-4 lg:space-y-6 ${mobileTab === 'queue' ? 'block animate-in fade-in slide-in-from-bottom-2 duration-300' : 'hidden lg:block'}`}>
-            <div className="hidden lg:flex items-center gap-2 text-xs lg:text-sm font-bold uppercase tracking-widest text-white/40 px-2">
-              <ListMusic className="w-4 h-4" /> Upcoming Queue
+          {/* Right Column: Queue & History */}
+          <section className={`space-y-4 lg:space-y-0 min-w-0 ${mobileTab === 'queue' || mobileTab === 'history' ? 'block animate-in fade-in slide-in-from-bottom-2 duration-300' : 'hidden lg:block'}`}>
+            <div className="hidden lg:flex bg-[#151619] border border-white/10 p-1 rounded-2xl w-fit mb-6">
+              <button
+                onClick={() => setRightTab('queue')}
+                className={`px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${rightTab === 'queue' ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-white/40 hover:text-white'}`}
+              >
+                <ListMusic className="w-4 h-4" /> Upcoming Queue ({queue.length})
+              </button>
+              <button
+                onClick={() => setRightTab('history')}
+                className={`px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${rightTab === 'history' ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-white/40 hover:text-white'}`}
+              >
+                <HistoryIcon className="w-4 h-4" /> History
+              </button>
             </div>
 
-            <div className="space-y-3">
+            {/* Queue Section */}
+            <div className={`space-y-3 w-full max-w-full overflow-hidden ${mobileTab === 'queue' ? 'block' : 'hidden lg:block'} ${rightTab === 'queue' ? 'lg:block' : 'lg:hidden'}`}>
               {queue.length > 0 ? (
                 queue.map((item, index) => (
-                  <div key={item.id} className="flex items-center gap-3 p-3 bg-white/[0.03] hover:bg-white/[0.06] rounded-2xl transition-all group/item border border-white/5 shadow-sm">
-                    {/* Image Container - Better sizing for mobile */}
+                  <div key={item.id} className="flex items-center gap-3 p-3 bg-white/[0.03] hover:bg-white/[0.06] rounded-2xl transition-all group/item border border-white/5 shadow-sm min-w-0 w-full">
                     <div className="relative shrink-0">
                       <img
                         src={item.thumbnail}
                         alt=""
-                        className="w-16 h-10 sm:w-20 sm:h-12 object-cover rounded-lg shadow-lg ring-1 ring-white/10 transition-transform group-hover/item:scale-105"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg`;
-                        }}
+                        className="w-16 h-10 sm:w-20 sm:h-12 object-cover rounded-lg shadow-lg ring-1 ring-white/10"
                       />
-                      {/* Mobile-only Index Badge */}
                       <div className="absolute -top-1.5 -left-1.5 bg-orange-500 text-black w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black italic shadow-lg lg:hidden">
                         {index + 1}
                       </div>
                     </div>
 
-                    {/* Metadata - Improved spacing */}
+                    {/* Metadata - flex-1 + min-w-0 is CRITICAL here */}
                     <div className="flex-1 min-w-0 flex flex-col justify-center">
                       <h4 className="font-bold truncate text-sm sm:text-base group-hover/item:text-orange-500 transition-colors leading-snug">
                         {item.title}
                       </h4>
-
                       <div className="flex items-center gap-2 mt-1">
                         <div className={`flex items-center gap-1 text-[10px] font-bold ${item.requesterName === 'Admin' ? 'text-orange-500' : 'text-white/30'} uppercase tracking-wider shrink-0`}>
                           <User className="w-2.5 h-2.5" />
-                          <span className="truncate max-w-[80px] sm:max-w-[120px]">
-                            {item.requesterName === 'Admin' ? 'Added by Admin' : (item.requesterName || 'anon')}
+                          <span className="truncate max-w-[60px] sm:max-w-[120px]">
+                            {item.requesterName === 'Admin' ? 'Admin' : (item.requesterName || 'anon')}
                           </span>
                         </div>
                         <span className="text-white/10 text-[10px]">•</span>
@@ -420,7 +452,6 @@ export default function RequestPage({ socket }: RequestPageProps) {
                       </div>
                     </div>
 
-                    {/* Vote Button - Larger touch target for mobile */}
                     <button
                       onClick={() => handleVote(item.id)}
                       disabled={votedSongs.includes(item.id)}
@@ -434,10 +465,73 @@ export default function RequestPage({ socket }: RequestPageProps) {
                   </div>
                 ))
               ) : (
+                /* Empty State */
                 <div className="py-12 border-2 border-dashed border-white/5 rounded-[2rem] flex flex-col items-center justify-center text-white/20 text-center px-6">
                   <Music className="w-10 h-10 mb-3 opacity-20" />
                   <p className="text-sm font-bold uppercase tracking-widest">Queue Empty</p>
-                  <p className="text-xs text-white/10 mt-1">Request a song to start the party!</p>
+                </div>
+              )}
+            </div>
+
+            {/* History Section */}
+            <div className={`space-y-3 w-full min-w-0 overflow-hidden ${mobileTab === 'history' ? 'block' : 'hidden lg:block'} ${rightTab === 'history' ? 'lg:block' : 'lg:hidden'}`}>
+              {history.length > 0 ? (
+                history.map((item, index) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-3 p-3 bg-white/[0.03] hover:bg-white/[0.06] rounded-2xl transition-all group/item border border-white/5 shadow-sm w-full min-w-0"
+                  >
+                    {/* 1. Thumbnail Container - Fixed size, won't grow or shrink */}
+                    <div className="relative flex-none w-16 h-10 sm:w-20 sm:h-12">
+                      <img
+                        src={item.thumbnail}
+                        alt=""
+                        className="w-full h-full object-cover rounded-lg shadow-lg ring-1 ring-white/10"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg`;
+                        }}
+                      />
+                    </div>
+
+                    {/* 2. Metadata - This is usually where the push happens */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-center overflow-hidden">
+                      <h4 className="font-bold truncate text-sm sm:text-base group-hover/item:text-orange-500 transition-colors leading-snug w-full">
+                        {item.title}
+                      </h4>
+
+                      <div className="flex items-center gap-2 mt-1 w-full overflow-hidden">
+                        {item.playCount && item.playCount > 1 ? (
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-orange-500 uppercase tracking-wider flex-none">
+                            <RotateCcw className="w-2.5 h-2.5" />
+                            <span>{item.playCount}x</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-white/30 uppercase tracking-wider flex-none">
+                            <Music className="w-2.5 h-2.5" />
+                            <span>History</span>
+                          </div>
+                        )}
+                        <span className="text-white/10 text-[10px] flex-none">•</span>
+                        <div className="text-[10px] font-black text-white/20 uppercase tracking-widest truncate">
+                          YouTube
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3. Action Button - flex-none ensures it stays visible on the far right */}
+                    <button
+                      onClick={() => handleRequest({ videoId: item.videoId, title: item.title, thumbnail: item.thumbnail })}
+                      disabled={cooldown > 0}
+                      className="flex-none p-3 bg-white/5 text-white/40 hover:text-black hover:bg-orange-500 rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                    >
+                      <Play className="w-4 h-4 fill-current" />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="py-12 border-2 border-dashed border-white/5 rounded-[2rem] flex flex-col items-center justify-center text-white/20 text-center px-6">
+                  <HistoryIcon className="w-10 h-10 mb-3 opacity-20" />
+                  <p className="text-sm font-bold uppercase tracking-widest">No History Yet</p>
                 </div>
               )}
             </div>

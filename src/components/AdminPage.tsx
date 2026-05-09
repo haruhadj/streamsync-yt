@@ -40,6 +40,7 @@ interface QueueItem {
   requesterName: string;
   status: string;
   votes: number;
+  playCount?: number;
 }
 
 interface AppSettings {
@@ -193,7 +194,16 @@ export default function AdminPage({ socket }: AdminPageProps) {
     });
 
     socket.on('history-update', (updatedHistory: QueueItem[]) => {
-      setHistory(updatedHistory);
+      const grouped = new Map<string, QueueItem>();
+      updatedHistory.forEach(item => {
+        if (grouped.has(item.videoId)) {
+          const existing = grouped.get(item.videoId)!;
+          existing.playCount = (existing.playCount || 1) + 1;
+        } else {
+          grouped.set(item.videoId, { ...item, playCount: 1 });
+        }
+      });
+      setHistory(Array.from(grouped.values()));
     });
 
     socket.on('settings-update', (nextSettings: AppSettings) => {
@@ -765,9 +775,16 @@ export default function AdminPage({ socket }: AdminPageProps) {
                         </div>
                         
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-bold truncate text-sm lg:text-base text-white/80 italic group-hover:text-white transition-colors mb-3">
-                            {item.title}
-                          </h4>
+                          <div className="flex items-start justify-between gap-2 mb-3">
+                            <h4 className="font-bold truncate text-sm lg:text-base text-white/80 italic group-hover:text-white transition-colors">
+                              {item.title}
+                            </h4>
+                            {item.playCount && item.playCount > 1 && (
+                              <span className="px-2 py-0.5 bg-orange-500/10 text-orange-500 border border-orange-500/20 rounded-lg text-[10px] font-black uppercase tracking-wider shrink-0">
+                                Played {item.playCount}x
+                              </span>
+                            )}
+                          </div>
                           <div className="flex gap-2">
                             <button
                               onClick={() => handlePlayNow({ videoId: item.videoId, title: item.title, thumbnail: item.thumbnail })}

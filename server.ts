@@ -517,7 +517,13 @@ io.on("connection", async (socket) => {
         { timestamp: "asc" }
       ],
     });
+    const history = await prisma.request.findMany({
+      where: { status: "played" },
+      orderBy: { timestamp: "desc" },
+      take: 50
+    });
     io.emit("queue-update", updatedQueue);
+    io.emit("history-update", history);
     io.emit("player-state-sync", currentPlayerState);
     io.emit("active-track-update", next);
   }));
@@ -645,6 +651,13 @@ io.on("connection", async (socket) => {
   
       io.emit("active-track-update", newTrack);
       io.emit("player-state-sync", currentPlayerState);
+      
+      const history = await prisma.request.findMany({
+        where: { status: "played" },
+        orderBy: { timestamp: "desc" },
+        take: 50
+      });
+      io.emit("history-update", history);
       socket.emit("success-toast", "Playing now!");
     } catch (err) {
       console.error(err);
@@ -660,6 +673,15 @@ io.on("connection", async (socket) => {
     });
     socket.emit("history-update", history);
   }));
+
+  socket.on("get-history", async () => {
+    const history = await prisma.request.findMany({
+      where: { status: "played" },
+      orderBy: { timestamp: "desc" },
+      take: 50
+    });
+    socket.emit("history-update", history);
+  });
   
   socket.on("admin-update-settings", adminGuard((settings: Partial<AppSettings>) => {
     const nextSettings = sanitizeSettings(settings);
