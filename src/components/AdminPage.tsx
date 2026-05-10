@@ -105,7 +105,7 @@ function SortableItem({ item, onDelete, onBanVideo }: {
         <h4 className="font-medium truncate text-xs sm:text-sm">{item.title}</h4>
         <div className="flex items-center gap-2 mt-0.5">
           <p className={`text-[10px] uppercase font-bold ${item.requesterName === 'Admin' ? 'text-orange-500' : 'text-white/30'} tracking-widest truncate`}>
-            {item.requesterName === 'Admin' ? 'Added by Admin' : (item.requesterName || 'anonymous')}
+            {item.requesterName === 'Admin' ? 'Admin' : (item.requesterName || 'anonymous')}
           </p>
           <span className="text-white/10 text-[10px]">•</span>
           <p className="text-[10px] font-black text-orange-500 whitespace-nowrap">{item.votes} votes</p>
