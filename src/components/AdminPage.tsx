@@ -407,7 +407,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
 
     const interval = setInterval(async () => {
       if (!playerRef.current) return;
-      
+
       const curr = (await playerRef.current?.getCurrentTime?.()) ?? 0;
       const duration = (await playerRef.current?.getDuration?.()) ?? 0;
 
@@ -450,7 +450,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
       // Force play in case background tab throttling leaves it unstarted or cued
       try {
         event.target.playVideo();
-      } catch (e) {}
+      } catch (e) { }
     }
   };
 
@@ -567,7 +567,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
             </div>
             <div className="min-w-0">
               <h3 className="font-bold italic line-clamp-1 text-sm lg:text-lg">{currentVideo?.title || 'No track active'}</h3>
-              <p className="text-xs lg:text-[13px] uppercase font-black text-white/30 tracking-widest truncate">
+              <p className="text-xs lg:text-[13px] uppercase font-black text-white/75 tracking-widest truncate">
                 {currentVideo?.requesterName === 'Admin' ? 'Added by Admin' : `Requested by ${currentVideo?.requesterName || 'anonymous'}`}
               </p>
             </div>
@@ -668,185 +668,87 @@ export default function AdminPage({ socket }: AdminPageProps) {
 
       {/* Tabs Content - Floating Bottom or separate section? Let's use the bottom of main */}
       <div className="lg:col-span-2 space-y-8">
-      {/* YouTube Discovery Modal */}
-      <AnimatePresence>
-        {isSearchModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsSearchModalOpen(false)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-            />
-            
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-4xl bg-[#151619] border border-white/10 rounded-[2rem] lg:rounded-[3rem] p-6 lg:p-10 space-y-8 shadow-2xl overflow-hidden"
-            >
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <h3 className="text-xl lg:text-3xl font-bold flex items-center gap-3 italic">
-                    <Search className="w-6 h-6 lg:w-8 lg:h-8 text-orange-500" />
-                    YouTube Discovery
-                  </h3>
-                  <p className="text-xs lg:text-sm text-white/40">Find and add songs directly to the live queue.</p>
+        {/* YouTube Discovery Modal */}
+        <AnimatePresence>
+          {isSearchModalOpen && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsSearchModalOpen(false)}
+                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              />
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-4xl bg-[#151619] border border-white/10 rounded-[2rem] lg:rounded-[3rem] p-6 lg:p-10 space-y-8 shadow-2xl overflow-hidden"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h3 className="text-xl lg:text-3xl font-bold flex items-center gap-3 italic">
+                      <Search className="w-6 h-6 lg:w-8 lg:h-8 text-orange-500" />
+                      YouTube Discovery
+                    </h3>
+                    <p className="text-xs lg:text-sm text-white/40">Find and add songs directly to the live queue.</p>
+                  </div>
+                  <button
+                    onClick={() => setIsSearchModalOpen(false)}
+                    className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all group"
+                  >
+                    <Plus className="w-6 h-6 rotate-45 text-white/40 group-hover:text-white transition-colors" />
+                  </button>
                 </div>
-                <button 
-                  onClick={() => setIsSearchModalOpen(false)} 
-                  className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all group"
-                >
-                  <Plus className="w-6 h-6 rotate-45 text-white/40 group-hover:text-white transition-colors" />
-                </button>
-              </div>
 
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-white/40 group-focus-within:text-orange-500 transition-colors">
-                  <Search className="w-6 h-6" />
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-white/40 group-focus-within:text-orange-500 transition-colors">
+                    <Search className="w-6 h-6" />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Search for videos..."
+                    className="w-full bg-white/5 border border-white/10 rounded-[1.5rem] py-4 lg:py-5 pl-14 pr-6 outline-none focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/10 transition-all text-base lg:text-xl font-medium"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    autoFocus
+                  />
+                  {isSearching && (
+                    <div className="absolute right-6 top-1/2 -translate-y-1/2">
+                      <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
+                    </div>
+                  )}
                 </div>
-                <input
-                  type="text"
-                  placeholder="Search for videos..."
-                  className="w-full bg-white/5 border border-white/10 rounded-[1.5rem] py-4 lg:py-5 pl-14 pr-6 outline-none focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/10 transition-all text-base lg:text-xl font-medium"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  autoFocus
-                />
-                {isSearching && (
-                  <div className="absolute right-6 top-1/2 -translate-y-1/2">
-                    <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
-                  </div>
-                )}
-              </div>
 
-              <div className="grid sm:grid-cols-2 gap-5 max-h-[50vh] lg:max-h-[60vh] overflow-y-auto custom-scrollbar pr-4 -mr-4">
-                <AnimatePresence mode="popLayout">
-                  {searchResults.map((video) => (
-                    <motion.div
-                      key={video.videoId}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      layout
-                      className="flex items-center gap-4 p-4 bg-white/[0.03] border border-white/5 rounded-[1.5rem] group hover:border-orange-500/30 hover:bg-white/[0.05] transition-all"
-                    >
-                      <div className="relative shrink-0">
-                        <img src={video.thumbnail} alt="" className="w-28 lg:w-36 h-16 lg:h-20 object-cover rounded-xl shadow-lg" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center">
-                          <Music2 className="w-6 h-6 text-white" />
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold truncate text-sm lg:text-base group-hover:text-orange-500 transition-colors italic mb-3">{video.title}</h4>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handlePlayNow(video)}
-                            className="flex-1 py-2 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg"
-                          >
-                            Play Now
-                          </button>
-                          <button
-                            onClick={() => handleAdminAdd(video)}
-                            className="flex-1 py-2 bg-orange-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-orange-500/20"
-                          >
-                            Add Queue
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-                {!isSearching && searchQuery && searchResults.length === 0 && (
-                  <div className="col-span-2 py-20 text-center text-white/20 italic">
-                    No results found for "{searchQuery}"
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {isHistoryModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsHistoryModalOpen(false)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-            />
-            
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-4xl bg-[#151619] border border-white/10 rounded-[2rem] lg:rounded-[3rem] p-6 lg:p-10 space-y-8 shadow-2xl overflow-hidden"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 lg:w-12 lg:h-12 bg-orange-500/10 rounded-xl flex items-center justify-center">
-                    <History className="w-5 h-5 lg:w-6 lg:h-6 text-orange-500" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl lg:text-3xl font-bold italic leading-tight">Playback History</h3>
-                    <p className="text-xs lg:text-sm text-white/40 uppercase font-black tracking-widest">Review past sessions</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setIsHistoryModalOpen(false)} 
-                  className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all group"
-                >
-                  <Plus className="w-6 h-6 rotate-45 text-white/40 group-hover:text-white transition-colors" />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6 max-h-[50vh] lg:max-h-[60vh] overflow-y-auto custom-scrollbar pr-4 -mr-4">
-                <AnimatePresence mode="popLayout">
-                  {history.length > 0 ? (
-                    history.map((item, index) => (
-                      <motion.div 
-                        key={item.id}
+                <div className="grid sm:grid-cols-2 gap-5 max-h-[50vh] lg:max-h-[60vh] overflow-y-auto custom-scrollbar pr-4 -mr-4">
+                  <AnimatePresence mode="popLayout">
+                    {searchResults.map((video) => (
+                      <motion.div
+                        key={video.videoId}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9 }}
-                        transition={{ delay: index * 0.03 }}
-                        className="flex items-center gap-4 p-4 bg-white/[0.03] border border-white/5 rounded-[1.5rem] group hover:border-orange-500/30 hover:bg-white/[0.05] transition-all relative overflow-hidden"
+                        layout
+                        className="flex items-center gap-4 p-4 bg-white/[0.03] border border-white/5 rounded-[1.5rem] group hover:border-orange-500/30 hover:bg-white/[0.05] transition-all"
                       >
-                        <div className="relative shrink-0 overflow-hidden rounded-xl shadow-lg">
-                          <img 
-                            src={item.thumbnail} 
-                            alt="" 
-                            className="w-24 lg:w-32 h-14 lg:h-18 object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500" 
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <RotateCcw className="w-6 h-6 text-white" />
+                        <div className="relative shrink-0">
+                          <img src={video.thumbnail} alt="" className="w-28 lg:w-36 h-16 lg:h-20 object-cover rounded-xl shadow-lg" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center">
+                            <Music2 className="w-6 h-6 text-white" />
                           </div>
                         </div>
-                        
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2 mb-3">
-                            <h4 className="font-bold truncate text-sm lg:text-base text-white/80 italic group-hover:text-white transition-colors">
-                              {item.title}
-                            </h4>
-                            {item.playCount && item.playCount > 1 && (
-                              <span className="px-2 py-0.5 bg-orange-500/10 text-orange-500 border border-orange-500/20 rounded-lg text-[10px] font-black uppercase tracking-wider shrink-0">
-                                Played {item.playCount}x
-                              </span>
-                            )}
-                          </div>
+                          <h4 className="font-bold truncate text-sm lg:text-base group-hover:text-orange-500 transition-colors italic mb-3">{video.title}</h4>
                           <div className="flex gap-2">
                             <button
-                              onClick={() => handlePlayNow({ videoId: item.videoId, title: item.title, thumbnail: item.thumbnail })}
+                              onClick={() => handlePlayNow(video)}
                               className="flex-1 py-2 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg"
                             >
                               Play Now
                             </button>
                             <button
-                              onClick={() => handleAdminAdd({ videoId: item.videoId, title: item.title, thumbnail: item.thumbnail })}
+                              onClick={() => handleAdminAdd(video)}
                               className="flex-1 py-2 bg-orange-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-orange-500/20"
                             >
                               Add Queue
@@ -854,28 +756,126 @@ export default function AdminPage({ socket }: AdminPageProps) {
                           </div>
                         </div>
                       </motion.div>
-                    ))
-                  ) : (
-                    <motion.div 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="col-span-1 sm:col-span-2 py-20 flex flex-col items-center justify-center text-center space-y-4"
-                    >
-                      <div className="w-20 h-20 bg-white/[0.02] rounded-full flex items-center justify-center">
-                        <History className="w-10 h-10 text-white/10 animate-pulse" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-white/20 text-lg italic font-medium">No playback history yet</p>
-                        <p className="text-xs uppercase tracking-widest text-white/5 font-black">Your journey starts here</p>
-                      </div>
-                    </motion.div>
+                    ))}
+                  </AnimatePresence>
+                  {!isSearching && searchQuery && searchResults.length === 0 && (
+                    <div className="col-span-2 py-20 text-center text-white/20 italic">
+                      No results found for "{searchQuery}"
+                    </div>
                   )}
-                </AnimatePresence>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {isHistoryModalOpen && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsHistoryModalOpen(false)}
+                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              />
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-4xl bg-[#151619] border border-white/10 rounded-[2rem] lg:rounded-[3rem] p-6 lg:p-10 space-y-8 shadow-2xl overflow-hidden"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 lg:w-12 lg:h-12 bg-orange-500/10 rounded-xl flex items-center justify-center">
+                      <History className="w-5 h-5 lg:w-6 lg:h-6 text-orange-500" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl lg:text-3xl font-bold italic leading-tight">Playback History</h3>
+                      <p className="text-xs lg:text-sm text-white/40 uppercase font-black tracking-widest">Review past sessions</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsHistoryModalOpen(false)}
+                    className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all group"
+                  >
+                    <Plus className="w-6 h-6 rotate-45 text-white/40 group-hover:text-white transition-colors" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6 max-h-[50vh] lg:max-h-[60vh] overflow-y-auto custom-scrollbar pr-4 -mr-4">
+                  <AnimatePresence mode="popLayout">
+                    {history.length > 0 ? (
+                      history.map((item, index) => (
+                        <motion.div
+                          key={item.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          transition={{ delay: index * 0.03 }}
+                          className="flex items-center gap-4 p-4 bg-white/[0.03] border border-white/5 rounded-[1.5rem] group hover:border-orange-500/30 hover:bg-white/[0.05] transition-all relative overflow-hidden"
+                        >
+                          <div className="relative shrink-0 overflow-hidden rounded-xl shadow-lg">
+                            <img
+                              src={item.thumbnail}
+                              alt=""
+                              className="w-24 lg:w-32 h-14 lg:h-18 object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <RotateCcw className="w-6 h-6 text-white" />
+                            </div>
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2 mb-3">
+                              <h4 className="font-bold truncate text-sm lg:text-base text-white/80 italic group-hover:text-white transition-colors">
+                                {item.title}
+                              </h4>
+                              {item.playCount && item.playCount > 1 && (
+                                <span className="px-2 py-0.5 bg-orange-500/10 text-orange-500 border border-orange-500/20 rounded-lg text-[10px] font-black uppercase tracking-wider shrink-0">
+                                  Played {item.playCount}x
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handlePlayNow({ videoId: item.videoId, title: item.title, thumbnail: item.thumbnail })}
+                                className="flex-1 py-2 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg"
+                              >
+                                Play Now
+                              </button>
+                              <button
+                                onClick={() => handleAdminAdd({ videoId: item.videoId, title: item.title, thumbnail: item.thumbnail })}
+                                className="flex-1 py-2 bg-orange-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-orange-500/20"
+                              >
+                                Add Queue
+                              </button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))
+                    ) : (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="col-span-1 sm:col-span-2 py-20 flex flex-col items-center justify-center text-center space-y-4"
+                      >
+                        <div className="w-20 h-20 bg-white/[0.02] rounded-full flex items-center justify-center">
+                          <History className="w-10 h-10 text-white/10 animate-pulse" />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-white/20 text-lg italic font-medium">No playback history yet</p>
+                          <p className="text-xs uppercase tracking-widest text-white/5 font-black">Your journey starts here</p>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

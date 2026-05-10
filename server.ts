@@ -145,9 +145,9 @@ async function checkInvidiousHealth() {
 // YouTube Search Proxy
 app.get("/api/youtube/search", async (req, res) => {
   const { q } = req.query as { q: string };
-  const API_KEY = process.env.YOUTUBE_API_KEY;
+  const API_KEYS = (process.env.YOUTUBE_API_KEY || "").split(",").map(k => k.trim()).filter(k => k.length > 0);
 
-  if (!API_KEY) {
+  if (API_KEYS.length === 0) {
     return res.status(500).json({ error: "YOUTUBE_API_KEY is not configured" });
   }
 
@@ -174,53 +174,65 @@ app.get("/api/youtube/search", async (req, res) => {
       }
     }
 
-    // 2. Call YouTube API
-    console.log(`[YouTube API] Fetching from API for: "${normalizedQuery}"`);
-    let items = [];
-    let usedInvidious = false;
+    // 2. Call YouTube API (with rotation)
+    let items: any[] = [];
+    let success = false;
 
-    try {
-      const response = await axios.get(
-        `https://www.googleapis.com/youtube/v3/search`,
-        {
-          params: {
-            part: "snippet",
-            q,
-            type: "video",
-            maxResults: 10,
-            key: API_KEY,
-          },
-          timeout: 5000,
+    for (let i = 0; i < API_KEYS.length; i++) {
+      const currentKey = API_KEYS[i];
+      try {
+        console.log(`[YouTube API] Fetching from API (Key ${i + 1}/${API_KEYS.length}) for: "${normalizedQuery}"`);
+        const response = await axios.get(
+          `https://www.googleapis.com/youtube/v3/search`,
+          {
+            params: {
+              part: "snippet",
+              q,
+              type: "video",
+              maxResults: 10,
+              key: currentKey,
+            },
+            timeout: 5000,
+          }
+        );
+
+        items = response.data.items.map((item: any) => ({
+          videoId: item.id.videoId,
+          title: item.snippet.title,
+          thumbnail: item.snippet.thumbnails.medium.url,
+        }));
+        success = true;
+        break;
+      } catch (error: any) {
+        const errorData = error.response?.data;
+        const isQuotaError = error.response?.status === 403 || errorData?.error?.code === 403 || errorData?.error?.message?.toLowerCase().includes("quota");
+        
+        console.error(`[YouTube API] Key ${i + 1} Error:`, isQuotaError ? "Quota Exceeded" : (errorData || error.message));
+
+        if (i < API_KEYS.length - 1 && (isQuotaError || error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT')) {
+          console.log(`[YouTube API] Rotating to next API key...`);
+          continue;
+        } else {
+          // If we reach here, it's either the last key or a non-quota error
+          if (isQuotaError || error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+            console.log(`[YouTube API] All keys exhausted or connection failed, trying Invidious...`);
+            try {
+              items = await searchInvidious(q);
+              success = true; // Consider Invidious success as success
+            } catch (invError) {
+              console.error("Invidious fallback also failed.");
+              throw error; // Re-throw last YouTube error
+            }
+            break;
+          } else {
+            throw error;
+          }
         }
-      );
-
-      items = response.data.items.map((item: any) => ({
-        videoId: item.id.videoId,
-        title: item.snippet.title,
-        thumbnail: item.snippet.thumbnails.medium.url,
-      }));
-    } catch (error: any) {
-      const errorData = error.response?.data;
-      const isQuotaError = errorData?.error?.code === 403 || errorData?.error?.message?.includes("quota");
-      
-      console.error("YouTube Search Error:", isQuotaError ? "Quota Exceeded" : (errorData || error.message));
-
-      if (isQuotaError || error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
-        console.log(`[YouTube API] Quota exceeded or connection failed, trying Invidious...`);
-        try {
-          items = await searchInvidious(q);
-          usedInvidious = true;
-        } catch (invError) {
-          console.error("Invidious fallback also failed.");
-          throw error; // Re-throw original YouTube error to trigger historical fallback
-        }
-      } else {
-        throw error;
       }
     }
 
     // 3. Save to Cache
-    if (items.length > 0 && prismaAny.searchCache) {
+    if (success && items.length > 0 && prismaAny.searchCache) {
       await prismaAny.searchCache.upsert({
         where: { query: normalizedQuery },
         update: {
