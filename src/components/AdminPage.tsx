@@ -1,12 +1,27 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { Socket } from 'socket.io-client';
 import YouTube, { YouTubeEvent } from 'react-youtube';
 import axios from 'axios';
 import debounce from 'lodash.debounce';
+
+import ReactPlayer from 'react-player';
+
+const PlayerFallback = () => {
+  useEffect(() => {
+    console.log('[Admin] Player placeholder mounted');
+    return () => console.log('[Admin] Player placeholder unmounted');
+  }, []);
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center text-white/10 gap-4 bg-black">
+      <Loader2 className="w-12 h-12 animate-spin opacity-20" />
+      <p className="text-[10px] font-bold uppercase tracking-widest opacity-20">Loading Player...</p>
+    </div>
+  );
+};
 import {
   Trash2, ListMusic, LayoutGrid, GripVertical,
   Ban, Music2, Search, History,
-  SkipForward, Loader2, UserMinus, RotateCcw, Plus
+  SkipForward, Loader2, UserMinus, RotateCcw, Plus, Play
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -127,8 +142,15 @@ export default function AdminPage({ socket }: AdminPageProps) {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [history, setHistory] = useState<QueueItem[]>([]);
   const [currentVideo, setCurrentVideo] = useState<QueueItem | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true);
   const [volume, setVolume] = useState(0.5);
+  const [playerType, setPlayerType] = useState<'youtube' | 'react-player'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('adminPlayerType');
+      return (saved === 'react-player' || saved === 'youtube') ? saved : 'youtube';
+    }
+    return 'youtube';
+  });
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -142,6 +164,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
     defaultVolume: 0.5,
   });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
   const playerRef = useRef<any>(null);
   const lastSkippedId = useRef<string | null>(null);
 
@@ -166,10 +189,18 @@ export default function AdminPage({ socket }: AdminPageProps) {
     };
 
     // Start on first interaction or when player is ready
-    window.addEventListener('click', startKeepAlive, { once: true });
+    const handleInteraction = () => {
+      startKeepAlive();
+      setHasInteracted(true);
+    };
+
+    window.addEventListener('click', handleInteraction, { once: true });
+    window.addEventListener('keydown', handleInteraction, { once: true });
     return () => {
       osc?.stop();
       ctx?.close();
+      window.removeEventListener('click', handleInteraction);
+      window.removeEventListener('keydown', handleInteraction);
     };
   }, []);
 
@@ -181,8 +212,14 @@ export default function AdminPage({ socket }: AdminPageProps) {
         artist: currentVideo.requesterName || 'StreamSync',
         artwork: [{ src: currentVideo.thumbnail || '', sizes: '512x512' }]
       });
-      navigator.mediaSession.setActionHandler('play', () => playerRef.current?.playVideo());
-      navigator.mediaSession.setActionHandler('pause', () => playerRef.current?.pauseVideo());
+      navigator.mediaSession.setActionHandler('play', () => {
+        if (playerType === 'youtube') playerRef.current?.playVideo();
+        else setIsPlaying(true);
+      });
+      navigator.mediaSession.setActionHandler('pause', () => {
+        if (playerType === 'youtube') playerRef.current?.pauseVideo();
+        else setIsPlaying(false);
+      });
       navigator.mediaSession.setActionHandler('nexttrack', () => handleSkip());
     }
   }, [currentVideo]);
@@ -197,6 +234,10 @@ export default function AdminPage({ socket }: AdminPageProps) {
       }
     }
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('adminPlayerType', playerType);
+  }, [playerType]);
 
   useEffect(() => {
     try {
@@ -225,13 +266,20 @@ export default function AdminPage({ socket }: AdminPageProps) {
     });
 
     socket.on('active-track-update', (track: QueueItem | null) => {
+      console.log('[Admin] Received active-track-update:', track);
       setCurrentVideo(track);
+      setIsPlaying(true);
       if (track?.videoId && playerRef.current) {
         // Bypass React's background render throttling by calling the player directly
         try {
-          playerRef.current.loadVideoById(track.videoId);
+          if (playerType === 'youtube') {
+            console.log('[Admin] Imperatively loading YT video:', track.videoId);
+            playerRef.current.loadVideoById(track.videoId);
+          } else {
+            console.log('[Admin] ReactPlayer will load video via props update');
+          }
         } catch (err) {
-          console.error('Failed to imperatively load video:', err);
+          console.error('[Admin] Failed to imperatively load video:', err);
         }
       }
     });
@@ -397,10 +445,23 @@ export default function AdminPage({ socket }: AdminPageProps) {
   };
 
   useEffect(() => {
+    console.log('[Admin] Player State Update:', {
+      playerType,
+      isPlaying,
+      hasInteracted,
+      videoId: currentVideo?.videoId,
+      title: currentVideo?.title
+    });
+  }, [playerType, isPlaying, hasInteracted, currentVideo]);
+
+  useEffect(() => {
     const player = playerRef.current;
     if (!player) return;
-    player.setVolume?.(Math.round(volume * 100));
-  }, [volume]);
+    if (playerType === 'youtube') {
+      player.setVolume?.(Math.round(volume * 100));
+    }
+    // ReactPlayer volume is handled via props
+  }, [volume, playerType]);
 
   useEffect(() => {
     if (!currentVideo || !isSocketAuthenticated) return;
@@ -408,8 +469,21 @@ export default function AdminPage({ socket }: AdminPageProps) {
     const interval = setInterval(async () => {
       if (!playerRef.current) return;
 
-      const curr = (await playerRef.current?.getCurrentTime?.()) ?? 0;
-      const duration = (await playerRef.current?.getDuration?.()) ?? 0;
+      let curr = 0;
+      let duration = 0;
+
+      if (playerType === 'youtube') {
+        curr = (await playerRef.current?.getCurrentTime?.()) ?? 0;
+        duration = (await playerRef.current?.getDuration?.()) ?? 0;
+      } else {
+        // ReactPlayer v3 ref is the internal player element itself
+        curr = playerRef.current?.currentTime ?? 0;
+        duration = playerRef.current?.duration ?? 0;
+      }
+
+      if (playerType === 'react-player') {
+        // console.log(`[Admin] ReactPlayer Tick: ${curr}/${duration}`);
+      }
 
       // Manual end-of-song check for background tabs
       if (duration > 0 && curr >= duration - 1.5 && isPlaying && lastSkippedId.current !== currentVideo.id) {
@@ -430,9 +504,10 @@ export default function AdminPage({ socket }: AdminPageProps) {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [socket, currentVideo, isPlaying, isSocketAuthenticated]);
+  }, [socket, currentVideo, isPlaying, isSocketAuthenticated, playerType]);
 
   const handlePlayerReady = (event: YouTubeEvent) => {
+    console.log('[Admin] YouTube Player Ready', event.target);
     playerRef.current = event.target;
     event.target.setVolume(Math.round(volume * 100));
     event.target.playVideo();
@@ -440,6 +515,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
 
   const handlePlayerStateChange = (event: any) => {
     const state = event.data;
+    console.log('[Admin] YouTube Player State Change:', state);
     if (state === 0) {
       handleEnded();
     } else if (state === 1) {
@@ -449,8 +525,11 @@ export default function AdminPage({ socket }: AdminPageProps) {
     } else if (state === -1 || state === 5) {
       // Force play in case background tab throttling leaves it unstarted or cued
       try {
+        console.log('[Admin] Forcing YouTube Play (state:', state, ')');
         event.target.playVideo();
-      } catch (e) { }
+      } catch (e) {
+        console.error('[Admin] Force play failed:', e);
+      }
     }
   };
 
@@ -533,30 +612,94 @@ export default function AdminPage({ socket }: AdminPageProps) {
 
         <div className="bg-black aspect-video rounded-[1.5rem] lg:rounded-[2.5rem] overflow-hidden border border-white/10 relative shadow-2xl shadow-orange-500/5">
           {currentVideo?.videoId ? (
-            <YouTube
-              videoId={currentVideo.videoId}
-              iframeClassName="w-full h-full"
-              className="w-full h-full"
-              onReady={handlePlayerReady}
-              onStateChange={handlePlayerStateChange}
-              opts={{
-                width: '100%',
-                height: '100%',
-                playerVars: {
-                  autoplay: 1,
-                  controls: 1,
-                  rel: 0,
-                  modestbranding: 1,
-                  iv_load_policy: 3,
-                  origin: window.location.origin,
-                },
-              }}
-            />
+            playerType === 'youtube' ? (
+              <YouTube
+                videoId={currentVideo.videoId}
+                iframeClassName="w-full h-full"
+                className="w-full h-full"
+                onReady={handlePlayerReady}
+                onStateChange={handlePlayerStateChange}
+                opts={{
+                  width: '100%',
+                  height: '100%',
+                  playerVars: {
+                    autoplay: 1,
+                    controls: 1,
+                    rel: 0,
+                    modestbranding: 1,
+                    iv_load_policy: 3,
+                    origin: window.location.origin,
+                  },
+                }}
+              />
+            ) : (
+              <Suspense fallback={<PlayerFallback />}>
+                <ReactPlayer
+                  key={currentVideo.videoId}
+                  src={`https://www.youtube.com/watch?v=${currentVideo.videoId}`}
+                  ref={(player) => {
+                    playerRef.current = player;
+                    if (player) console.log('[Admin] ReactPlayer ref assigned');
+                  }}
+                  width="100%"
+                  height="100%"
+                  playing={isPlaying && hasInteracted}
+                  controls={true}
+                  volume={volume}
+                  onReady={() => console.log('[Admin] ReactPlayer Ready')}
+                  onStart={() => console.log('[Admin] ReactPlayer Started')}
+                  onPlay={() => {
+                    console.log('[Admin] ReactPlayer Play');
+                    setIsPlaying(true);
+                  }}
+                  onPause={() => {
+                    console.log('[Admin] ReactPlayer Pause');
+                    setIsPlaying(false);
+                  }}
+                  onEnded={() => {
+                    console.log('[Admin] ReactPlayer Ended');
+                    handleEnded();
+                  }}
+                  onError={(e) => console.error('[Admin] ReactPlayer Error:', e)}
+                  config={{
+                    youtube: {
+                      playerVars: {
+                        rel: 0,
+                        origin: window.location.origin,
+                        iv_load_policy: 3,
+                        modestbranding: 1
+                      }
+                    }
+                  }}
+                />
+              </Suspense>
+            )
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-white/10 gap-4">
               <Music2 className="w-16 h-16 opacity-10 animate-pulse" />
               <p className="text-xs font-bold uppercase tracking-widest opacity-20">Waiting for track...</p>
             </div>
+          )}
+
+          {/* Interaction Overlay to satisfy browser autoplay policies */}
+          {!hasInteracted && currentVideo && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm cursor-pointer group"
+              onClick={() => {
+                setHasInteracted(true);
+                setIsPlaying(true);
+              }}
+            >
+              <div className="text-center p-8 bg-[#151619] border border-orange-500/50 rounded-[2.5rem] shadow-2xl transition-transform group-hover:scale-105 active:scale-95">
+                <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-6 rotate-3 shadow-lg shadow-orange-500/20 animate-bounce">
+                  <Play className="w-8 h-8 text-black fill-current" />
+                </div>
+                <h3 className="text-xl lg:text-2xl font-bold italic mb-2 tracking-tight">READY TO STREAM</h3>
+                <p className="text-[10px] text-white/40 uppercase font-black tracking-[0.2em]">Click anywhere to enable audio sync</p>
+              </div>
+            </motion.div>
           )}
         </div>
 
@@ -631,6 +774,25 @@ export default function AdminPage({ socket }: AdminPageProps) {
         {/* Quick Tools */}
         <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl space-y-5">
           <h3 className="text-xs font-bold uppercase tracking-widest text-white/40">Configurable Settings</h3>
+
+          <div className="space-y-2">
+            <label className="text-[10px] lg:text-xs uppercase tracking-widest text-white/40 font-bold italic">Testing: Playback Engine</label>
+            <div className="flex bg-black/40 p-1 rounded-xl border border-white/5">
+              <button
+                onClick={() => setPlayerType('youtube')}
+                className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${playerType === 'youtube' ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-white/40 hover:bg-white/5'}`}
+              >
+                YT IFrame
+              </button>
+              <button
+                onClick={() => setPlayerType('react-player')}
+                className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${playerType === 'react-player' ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-white/40 hover:bg-white/5'}`}
+              >
+                ReactPlayer
+              </button>
+            </div>
+            <p className="text-[9px] text-white/20 italic mt-1 px-1 leading-tight">Switch if you have autoplay issues in background tabs.</p>
+          </div>
 
           <div className="space-y-2">
             <label className="text-[10px] lg:text-xs uppercase tracking-widest text-white/40 font-bold">Request Cooldown (seconds)</label>
