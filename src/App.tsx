@@ -18,6 +18,20 @@ const getSocket = () => {
 
 export default function App() {
   const socket = getSocket();
+  const [isConnected, setIsConnected] = useState(socket.connected);
+
+  useEffect(() => {
+    function onConnect() { setIsConnected(true); }
+    function onDisconnect() { setIsConnected(false); }
+
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+
+    return () => {
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+    };
+  }, [socket]);
 
   return (
     <Router>
@@ -41,6 +55,15 @@ export default function App() {
                     <Music2 className="w-5 h-5 text-black" />
                   </div>
                   <span className="font-bold text-xl tracking-tight">StreamSync<span className="text-orange-500">YT</span></span>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full">
+                    <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                      {isConnected ? 'System Live' : 'System Offline'}
+                    </span>
+                  </div>
                 </div>
               </div>
             </nav>

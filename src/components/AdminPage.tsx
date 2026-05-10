@@ -20,7 +20,7 @@ const PlayerFallback = () => {
 import {
   Trash2, ListMusic, LayoutGrid, GripVertical,
   Ban, Music2, Search, History,
-  SkipForward, Loader2, UserMinus, RotateCcw, Plus, Play
+  SkipForward, Loader2, UserMinus, RotateCcw, Plus, Play, ShieldCheck, Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -143,6 +143,8 @@ export default function AdminPage({ socket }: AdminPageProps) {
   const [currentVideo, setCurrentVideo] = useState<QueueItem | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [volume, setVolume] = useState(0.5);
+  const [masterSocketId, setMasterSocketId] = useState<string | null>(null);
+  const isMaster = socket.id ? (socket.id === masterSocketId) : false;
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -281,6 +283,25 @@ export default function AdminPage({ socket }: AdminPageProps) {
       setSettings(nextSettings);
       setVolume(nextSettings.defaultVolume);
       localStorage.setItem('adminSettings', JSON.stringify(nextSettings));
+    });
+
+    socket.on('master-update', (id: string | null) => {
+      setMasterSocketId(id);
+    });
+
+    socket.on('player-state-sync', (state: any) => {
+      if (!isMaster) {
+        console.log('[Admin] Received player-state-sync (Non-Master):', state);
+        setCurrentVideo(state);
+        setIsPlaying(state.playing);
+      }
+    });
+
+    socket.on('player-tick', (tick: { currentTime: number; duration: number }) => {
+      if (!isMaster && playerRef.current) {
+        // Non-masters could optionally sync their player, but for now we'll just track it
+        // and maybe update a progress bar if we add one to the Admin UI
+      }
     });
 
     socket.on('success-toast', (msg) => toast.success(msg));
@@ -428,13 +449,15 @@ export default function AdminPage({ socket }: AdminPageProps) {
   };
 
   useEffect(() => {
-    console.log('[Admin] Player State Update:', {
-      isPlaying,
-      hasInteracted,
-      videoId: currentVideo?.videoId,
-      title: currentVideo?.title
-    });
-  }, [isPlaying, hasInteracted, currentVideo]);
+    if (currentVideo) {
+      console.log('[Admin] Player Status:', {
+        master: isMaster,
+        playing: isPlaying,
+        interacted: hasInteracted,
+        video: currentVideo.title
+      });
+    }
+  }, [isPlaying, hasInteracted, currentVideo, isMaster]);
 
   useEffect(() => {
     const player = playerRef.current;
@@ -446,14 +469,10 @@ export default function AdminPage({ socket }: AdminPageProps) {
     if (!currentVideo || !isSocketAuthenticated) return;
 
     const interval = setInterval(async () => {
-      if (!playerRef.current) return;
+      if (!playerRef.current || !isMaster) return;
 
-      let curr = playerRef.current?.currentTime ?? 0;
-      let duration = playerRef.current?.duration ?? 0;
-
-      if (playerType === 'react-player') {
-        // console.log(`[Admin] ReactPlayer Tick: ${curr}/${duration}`);
-      }
+      let curr = playerRef.current.getCurrentTime?.() ?? playerRef.current.getInternalPlayer?.()?.getCurrentTime?.() ?? 0;
+      let duration = playerRef.current.getDuration?.() ?? 0;
 
       // Manual end-of-song check for background tabs
       if (duration > 0 && curr >= duration - 1.5 && isPlaying && lastSkippedId.current !== currentVideo.id) {
@@ -461,6 +480,19 @@ export default function AdminPage({ socket }: AdminPageProps) {
         handleEnded();
         return;
       }
+
+      // High frequency tick for progress bars
+      socket.emit('admin-player-tick', {
+        currentTime: curr,
+        duration: duration,
+      });
+    }, 500);
+
+    // Occasional full state sync (every 5 seconds or on state change)
+    const stateSyncInterval = setInterval(() => {
+      if (!playerRef.current || !isMaster) return;
+      let curr = playerRef.current.getCurrentTime?.() ?? 0;
+      let duration = playerRef.current.getDuration?.() ?? 0;
 
       socket.emit('admin-player-state', {
         videoId: currentVideo.videoId,
@@ -471,10 +503,13 @@ export default function AdminPage({ socket }: AdminPageProps) {
         currentTime: curr,
         duration: duration,
       });
-    }, 1000);
+    }, 5000);
 
-    return () => clearInterval(interval);
-  }, [socket, currentVideo, isPlaying, isSocketAuthenticated]);
+    return () => {
+      clearInterval(interval);
+      clearInterval(stateSyncInterval);
+    };
+  }, [socket, currentVideo, isPlaying, isSocketAuthenticated, isMaster]);
 
 
 
@@ -567,7 +602,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
                 }}
                 width="100%"
                 height="100%"
-                playing={isPlaying && hasInteracted}
+                playing={isMaster && isPlaying && hasInteracted}
                 controls={true}
                 volume={volume}
                 muted={!hasInteracted}
@@ -599,6 +634,17 @@ export default function AdminPage({ socket }: AdminPageProps) {
                   }
                 }}
               />
+              {!isMaster && (
+                <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 space-y-4">
+                  <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center">
+                    <ShieldCheck className="w-6 h-6 text-white/20" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-black uppercase tracking-widest text-white/40">Remote Mode</h4>
+                    <p className="text-[10px] text-white/20 font-medium max-w-[200px]">Playback is disabled on this tab to prevent audio conflicts. Controls remain active.</p>
+                  </div>
+                </div>
+              )}
             </Suspense>
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-white/10 gap-4">
@@ -699,6 +745,50 @@ export default function AdminPage({ socket }: AdminPageProps) {
 
         {/* Quick Tools */}
         <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl space-y-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-white/40">Master Player Control</h3>
+            <div className={`w-2 h-2 rounded-full ${isMaster ? 'bg-green-500 animate-pulse' : 'bg-white/10'}`} />
+          </div>
+
+          <button
+            onClick={() => {
+              if (isMaster) {
+                socket.emit('admin-release-master');
+              } else if (masterSocketId) {
+                if (confirm("Another tab is currently the Master. Take over playback control?")) {
+                  socket.emit('admin-claim-master', { force: true });
+                }
+              } else {
+                socket.emit('admin-claim-master');
+              }
+            }}
+            className={`w-full p-4 rounded-xl border transition-all flex items-center justify-between group ${isMaster ? 'bg-orange-500/10 border-orange-500/50 text-orange-500' : 'bg-white/5 border-white/10 text-white/40 hover:border-white/20'}`}
+          >
+            <div className="flex items-center gap-3">
+              <ShieldCheck className={`w-5 h-5 ${isMaster ? 'text-orange-500' : 'text-white/20'}`} />
+              <span className="text-xs font-black uppercase tracking-widest">
+                {isMaster ? 'Master Active' : (masterSocketId ? 'Take Over Master' : 'Claim Master')}
+              </span>
+            </div>
+            <div className={`w-10 h-5 rounded-full relative transition-colors ${isMaster ? 'bg-orange-500' : 'bg-white/10'}`}>
+              <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${isMaster ? 'left-6' : 'left-1'}`} />
+            </div>
+          </button>
+
+          {isMaster && (
+            <p className="text-[10px] text-orange-500/60 font-medium italic text-center px-2">
+              Authoritative sync active. Only one master should be active per session.
+            </p>
+          )}
+
+          {!isMaster && masterSocketId && (
+            <p className="text-[10px] text-white/20 font-medium italic text-center px-2">
+              Another tab is currently the Master Player.
+            </p>
+          )}
+
+          <div className="h-px bg-white/5 my-2" />
+
           <h3 className="text-xs font-bold uppercase tracking-widest text-white/40">Configurable Settings</h3>
 
 

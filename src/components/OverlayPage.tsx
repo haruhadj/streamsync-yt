@@ -22,8 +22,16 @@ export default function OverlayPage({ socket }: OverlayPageProps) {
       setNowPlaying(state);
     });
 
+    socket.on('player-tick', (tick: { currentTime: number; duration: number }) => {
+      setNowPlaying((prev: any) => {
+        if (!prev) return null;
+        return { ...prev, currentTime: tick.currentTime, duration: tick.duration };
+      });
+    });
+
     return () => {
       socket.off('player-state-sync');
+      socket.off('player-tick');
     };
   }, [socket]);
 
@@ -87,11 +95,9 @@ export default function OverlayPage({ socket }: OverlayPageProps) {
 
             {/* Progress indicator border */}
             <div className="absolute inset-x-0 bottom-0 h-1 bg-white/5">
-                <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: '100%' }}
-                    transition={{ duration: 60, ease: 'linear' }} // Mock for visuals
-                    className="h-full bg-orange-500"
+                <div 
+                    className="h-full bg-orange-500 transition-all duration-500 ease-linear"
+                    style={{ width: `${Math.min(100, ((nowPlaying.currentTime || 0) / (nowPlaying.duration || 1)) * 100)}%` }}
                 />
             </div>
           </motion.div>

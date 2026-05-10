@@ -102,6 +102,13 @@ export default function RequestPage({ socket }: RequestPageProps) {
       setNowPlaying(state);
     });
 
+    socket.on('player-tick', (tick: { currentTime: number; duration: number }) => {
+      setNowPlaying((prev: any) => {
+        if (!prev) return null;
+        return { ...prev, currentTime: tick.currentTime, duration: tick.duration };
+      });
+    });
+
     socket.on('success-toast', (msg) => {
       toast.success(msg);
       startCooldown();
@@ -163,6 +170,22 @@ export default function RequestPage({ socket }: RequestPageProps) {
     const next = [...votedSongs, id];
     setVotedSongs(next);
     localStorage.setItem('votedSongs', JSON.stringify(next));
+  };
+
+  const calculateWaitTime = (index: number) => {
+    const AVG_SONG_DURATION = 240; // 4 minutes
+    let time = 0;
+    
+    // Time remaining on current song
+    if (nowPlaying && nowPlaying.duration) {
+      time += Math.max(0, nowPlaying.duration - (nowPlaying.currentTime || 0));
+    }
+
+    // Time for songs ahead in queue
+    time += index * AVG_SONG_DURATION;
+
+    if (time < 60) return "Next!";
+    return `~${Math.ceil(time / 60)} min wait`;
   };
 
   const searchYouTube = useCallback(
@@ -448,6 +471,11 @@ export default function RequestPage({ socket }: RequestPageProps) {
                         <span className="text-white/10 text-[10px]">•</span>
                         <div className="text-[10px] font-black text-orange-500/60 uppercase tracking-widest whitespace-nowrap">
                           {item.votes} {item.votes === 1 ? 'vote' : 'votes'}
+                        </div>
+                        <span className="text-white/10 text-[10px]">•</span>
+                        <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest whitespace-nowrap flex items-center gap-1">
+                          <Clock className="w-2.5 h-2.5" />
+                          {calculateWaitTime(index)}
                         </div>
                       </div>
                     </div>

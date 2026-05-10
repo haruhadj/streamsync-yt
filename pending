@@ -1,3 +1,24 @@
 ui changes after adding song from admin
 fix mobile screen ui in admin page horizontal scroll 
 cross device optimization
+
+
+The StreamSync-DirectYT project is now significantly more robust and polished. I've implemented a series of surgical improvements across the stack to ensure
+  high-precision synchronization, reliable data persistence, and a better user experience.
+
+  🚀 Key Improvements Delivered
+
+   1. High-Precision Sync (500ms):
+       - The Admin player now broadcasts a player-tick every 500ms.
+       - All clients (Request Page and OBS Overlay) now have buttery-smooth progress bars synchronized with the master player.
+   2. Robust Queue Persistence:
+       - Added an explicit order field to the database schema.
+       - Manual reordering in the Admin dashboard is now deterministic and survives server restarts.
+       - Optimized queue fetching using transaction-based updates.
+   3. "Master Mode" Sovereignty:
+       - Added a Master Mode toggle to the Admin dashboard.
+       - Only the designated Master tab broadcasts synchronization data, preventing conflicts when multiple admin tabs are open.
+   4. Polished User Experience:
+       - Estimated Wait Times: Users can now see approximately how many minutes they'll have to wait for their song in the queue.
+       - Connection Status: Added a real-time "System Live/Offline" indicator to the header of all pages.
+       - Overlay Fix: The OBS overlay progress bar now reflects the actual song duration and current time instead of a mock animation.

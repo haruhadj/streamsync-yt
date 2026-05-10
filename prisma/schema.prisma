@@ -20,6 +20,7 @@ model Request {
   timestamp    DateTime @default(now())
   status       String   @default("pending") // pending, playing, played
   votes        Int      @default(0)
+  order        Int      @default(0)
   voteRecords  Vote[]
 }
 

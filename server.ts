@@ -60,6 +60,7 @@ const appSettings: AppSettings = {
 
 const requesterLastRequestAt = new Map<string, number>();
 let currentPlayerState: PlayerState | null = null;
+let masterSocketId: string | null = null;
 
 function sanitizeSettings(raw: Partial<AppSettings>): AppSettings {
   return {
@@ -299,6 +300,7 @@ io.on("connection", async (socket) => {
   }
 
   socket.emit("settings-update", appSettings);
+  socket.emit("master-update", masterSocketId);
 
   // Admin Guard Wrapper
   const adminGuard = (handler: Function) => {
@@ -311,10 +313,31 @@ io.on("connection", async (socket) => {
     };
   };
 
+  socket.on("admin-claim-master", adminGuard((data?: { force?: boolean }) => {
+    if (masterSocketId && masterSocketId !== socket.id && !data?.force) {
+      const existingMaster = io.sockets.sockets.get(masterSocketId);
+      if (existingMaster && existingMaster.connected) {
+        return socket.emit("error-toast", "Another tab is already the Master. Use 'Take Over' to claim it.");
+      }
+    }
+    masterSocketId = socket.id;
+    io.emit("master-update", masterSocketId);
+    socket.emit("success-toast", "You are now the Master Player.");
+  }));
+
+  socket.on("admin-release-master", adminGuard(() => {
+    if (masterSocketId === socket.id) {
+      masterSocketId = null;
+      io.emit("master-update", masterSocketId);
+      socket.emit("success-toast", "Master Player released.");
+    }
+  }));
+
   // Send initial queue
   const queue = await prisma.request.findMany({
     where: { status: "pending" },
     orderBy: [
+      { order: "asc" },
       { votes: "desc" },
       { timestamp: "asc" }
     ],
@@ -391,6 +414,13 @@ io.on("connection", async (socket) => {
     }
 
     try {
+      // Find max order to place at the end
+      const maxOrderRequest = await prisma.request.findFirst({
+        where: { status: "pending" },
+        orderBy: { order: "desc" },
+      });
+      const nextOrder = (maxOrderRequest?.order ?? 0) + 1;
+
       const newRequest = await prisma.request.create({
         data: {
           videoId,
@@ -398,6 +428,7 @@ io.on("connection", async (socket) => {
           thumbnail,
           requesterName: requesterName || "anonymous",
           requesterIp: ipString,
+          order: nextOrder,
         },
       });
 
@@ -427,6 +458,7 @@ io.on("connection", async (socket) => {
       const updatedQueue = await prisma.request.findMany({
         where: { status: "pending" },
         orderBy: [
+          { order: "asc" },
           { votes: "desc" },
           { timestamp: "asc" }
         ],
@@ -469,6 +501,7 @@ io.on("connection", async (socket) => {
       const updatedQueue = await prisma.request.findMany({
         where: { status: "pending" },
         orderBy: [
+          { order: "asc" },
           { votes: "desc" },
           { timestamp: "asc" }
         ],
@@ -480,9 +513,17 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("admin-player-state", adminGuard((state: any) => {
-    // state: { videoId, title, thumbnail, playing, currentTime }
+    // state: { videoId, title, thumbnail, playing, currentTime, duration }
     currentPlayerState = state;
     socket.broadcast.emit("player-state-sync", state);
+  }));
+
+  socket.on("admin-player-tick", adminGuard((tick: { currentTime: number; duration: number }) => {
+    if (currentPlayerState) {
+      currentPlayerState.currentTime = tick.currentTime;
+      currentPlayerState.duration = tick.duration;
+    }
+    socket.broadcast.emit("player-tick", tick);
   }));
   
   socket.on("admin-skip", adminGuard(async () => {
@@ -499,6 +540,7 @@ io.on("connection", async (socket) => {
     const next = await prisma.request.findFirst({
       where: { status: "pending" },
       orderBy: [
+        { order: "asc" },
         { votes: "desc" },
         { timestamp: "asc" }
       ],
@@ -525,6 +567,7 @@ io.on("connection", async (socket) => {
     const updatedQueue = await prisma.request.findMany({
       where: { status: "pending" },
       orderBy: [
+        { order: "asc" },
         { votes: "desc" },
         { timestamp: "asc" }
       ],
@@ -545,6 +588,7 @@ io.on("connection", async (socket) => {
     const updatedQueue = await prisma.request.findMany({
       where: { status: "pending" },
       orderBy: [
+        { order: "asc" },
         { votes: "desc" },
         { timestamp: "asc" }
       ],
@@ -553,15 +597,20 @@ io.on("connection", async (socket) => {
   }));
   
   socket.on("admin-reorder-queue", adminGuard(async (newQueueIds: string[]) => {
-    for (let i = 0; i < newQueueIds.length; i++) {
-        await prisma.request.update({
-            where: { id: newQueueIds[i] },
-            data: { timestamp: new Date(Date.now() + i) }
-        });
-    }
+    // Perform updates in transaction to ensure consistency
+    await prisma.$transaction(
+      newQueueIds.map((id, index) => 
+        prisma.request.update({
+          where: { id },
+          data: { order: index }
+        })
+      )
+    );
+
     const updatedQueue = await prisma.request.findMany({
       where: { status: "pending" },
       orderBy: [
+        { order: "asc" },
         { votes: "desc" },
         { timestamp: "asc" }
       ],
@@ -596,6 +645,7 @@ io.on("connection", async (socket) => {
       const updatedQueue = await prisma.request.findMany({
           where: { status: "pending" },
           orderBy: [
+            { order: "asc" },
             { votes: "desc" },
             { timestamp: "asc" }
           ],
@@ -607,6 +657,12 @@ io.on("connection", async (socket) => {
   socket.on("admin-add-song", adminGuard(async (data: any) => {
     const { videoId, title, thumbnail } = data;
     try {
+      const maxOrderRequest = await prisma.request.findFirst({
+        where: { status: "pending" },
+        orderBy: { order: "desc" },
+      });
+      const nextOrder = (maxOrderRequest?.order ?? 0) + 1;
+
       await prisma.request.create({
         data: {
           videoId,
@@ -614,12 +670,14 @@ io.on("connection", async (socket) => {
           thumbnail,
           requesterName: "Admin",
           requesterIp: ipString,
+          order: nextOrder,
         },
       });
   
       const updatedQueue = await prisma.request.findMany({
         where: { status: "pending" },
         orderBy: [
+          { order: "asc" },
           { votes: "desc" },
           { timestamp: "asc" }
         ],
@@ -707,6 +765,10 @@ io.on("connection", async (socket) => {
 
   socket.on("disconnect", () => {
     console.log("Client disconnected:", socket.id);
+    if (masterSocketId === socket.id) {
+      masterSocketId = null;
+      io.emit("master-update", masterSocketId);
+    }
   });
 });
 
