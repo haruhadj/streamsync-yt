@@ -141,6 +141,8 @@ export default function AdminPage({ socket }: AdminPageProps) {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [history, setHistory] = useState<QueueItem[]>([]);
+  const [blacklist, setBlacklist] = useState<any[]>([]);
+  const [isBlacklistModalOpen, setIsBlacklistModalOpen] = useState(false);
   const [currentVideo, setCurrentVideo] = useState<QueueItem | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [volume, setVolume] = useState(0.5);
@@ -304,6 +306,10 @@ export default function AdminPage({ socket }: AdminPageProps) {
       setMasterSocketId(id);
     });
 
+    socket.on('blacklist-update', (updatedBlacklist: any[]) => {
+      setBlacklist(updatedBlacklist);
+    });
+
     socket.on('player-state-sync', (state: any) => {
       if (!isMaster) {
         console.log('[Admin] Received player-state-sync (Non-Master):', state);
@@ -362,6 +368,12 @@ export default function AdminPage({ socket }: AdminPageProps) {
       socket.emit('admin-get-history');
     }
   }, [isHistoryModalOpen, socket, isAuthenticated]);
+
+  useEffect(() => {
+    if (isBlacklistModalOpen && isAuthenticated) {
+      socket.emit('admin-get-blacklist');
+    }
+  }, [isBlacklistModalOpen, socket, isAuthenticated]);
 
   const handleAuth = (e: React.FormEvent) => {
     e.preventDefault();
@@ -432,6 +444,10 @@ export default function AdminPage({ socket }: AdminPageProps) {
     if (confirm(`Ban requester IP: ${ip}?`)) {
       socket.emit('admin-ban-user', ip);
     }
+  };
+
+  const handleUnbanVideo = (videoId: string) => {
+    socket.emit('admin-unban-video', videoId);
   };
 
   const handleSaveSettings = () => {
@@ -590,6 +606,12 @@ export default function AdminPage({ socket }: AdminPageProps) {
               History
             </button>
             <button
+              onClick={() => setIsBlacklistModalOpen(true)}
+              className={`px-4 lg:px-6 py-2.5 font-bold text-xs uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${isBlacklistModalOpen ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-white/40 hover:bg-white/5'}`}
+            >
+              Banned
+            </button>
+            <button
               onClick={handleLogout}
               className="px-4 lg:px-6 py-2.5 text-white/20 hover:text-red-500 font-bold text-xs uppercase tracking-widest rounded-xl transition-all whitespace-nowrap"
             >
@@ -714,13 +736,22 @@ export default function AdminPage({ socket }: AdminPageProps) {
               </p>
             </div>
           </div>
-          <button
-            onClick={handleSkip}
-            className="px-6 lg:px-8 py-3 lg:py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex items-center justify-center sm:justify-start gap-3 transition-all group shrink-0"
-          >
-            <span className="text-[10px] lg:text-xs font-black uppercase tracking-widest text-white/40 group-hover:text-white transition-colors">Skip Track</span>
-            <SkipForward className="w-4 h-4 lg:w-5 lg:h-5 text-orange-500" />
-          </button>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={() => currentVideo && handleBanVideo(currentVideo.videoId, currentVideo.title)}
+              className="px-4 lg:px-6 py-3 lg:py-4 bg-white/5 hover:bg-orange-500/10 border border-white/10 hover:border-orange-500/50 rounded-2xl flex items-center justify-center gap-3 transition-all group"
+              title="Ban Current Video"
+            >
+              <Ban className="w-4 h-4 lg:w-5 lg:h-5 text-white/40 group-hover:text-orange-500" />
+            </button>
+            <button
+              onClick={handleSkip}
+              className="px-6 lg:px-8 py-3 lg:py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex items-center justify-center sm:justify-start gap-3 transition-all group shrink-0"
+            >
+              <span className="text-[10px] lg:text-xs font-black uppercase tracking-widest text-white/40 group-hover:text-white transition-colors">Skip Track</span>
+              <SkipForward className="w-4 h-4 lg:w-5 lg:h-5 text-orange-500" />
+            </button>
+          </div>
         </div>
       </section>
 
@@ -938,15 +969,22 @@ export default function AdminPage({ socket }: AdminPageProps) {
                           <div className="flex gap-2">
                             <button
                               onClick={() => handlePlayNow(video)}
-                              className="flex-1 py-2 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg"
+                              className="flex-[2] py-2 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg"
                             >
                               Play Now
                             </button>
                             <button
                               onClick={() => handleAdminAdd(video)}
-                              className="flex-1 py-2 bg-orange-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-orange-500/20"
+                              className="flex-[2] py-2 bg-orange-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-orange-500/20"
                             >
                               Add Queue
+                            </button>
+                            <button
+                              onClick={() => handleBanVideo(video.videoId, video.title)}
+                              className="flex-1 py-2 bg-white/5 hover:bg-orange-500/10 text-white/20 hover:text-orange-500 border border-white/10 rounded-xl transition-all flex items-center justify-center"
+                              title="Ban Video"
+                            >
+                              <Ban className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
@@ -1046,23 +1084,32 @@ export default function AdminPage({ socket }: AdminPageProps) {
                             <div className="flex gap-2">
                               <button
                                 onClick={() => handlePlayNow({ videoId: item.videoId, title: item.title, thumbnail: item.thumbnail })}
-                                className="flex-1 py-2 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg"
+                                className="flex-[2] py-2 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg"
                               >
                                 Play Now
                               </button>
                               <button
                                 onClick={() => handleAdminAdd({ videoId: item.videoId, title: item.title, thumbnail: item.thumbnail })}
-                                className="flex-1 py-2 bg-orange-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-orange-500/20"
+                                className="flex-[2] py-2 bg-orange-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-orange-500/20"
                               >
                                 Add Queue
                               </button>
-                              <button
-                                onClick={() => handleDeleteHistoryVideo(item.videoId, item.title)}
-                                className="p-2 bg-white/5 hover:bg-red-500/10 text-white/20 hover:text-red-500 rounded-xl transition-all border border-white/5"
-                                title="Remove from history"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              <div className="flex gap-1 shrink-0">
+                                <button
+                                  onClick={() => handleBanVideo(item.videoId, item.title)}
+                                  className="p-2 bg-white/5 hover:bg-orange-500/10 text-white/20 hover:text-orange-500 rounded-xl transition-all border border-white/5"
+                                  title="Ban Video"
+                                >
+                                  <Ban className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteHistoryVideo(item.videoId, item.title)}
+                                  className="p-2 bg-white/5 hover:bg-red-500/10 text-white/20 hover:text-red-500 rounded-xl transition-all border border-white/5"
+                                  title="Remove from history"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </motion.div>
@@ -1083,6 +1130,77 @@ export default function AdminPage({ socket }: AdminPageProps) {
                       </motion.div>
                     )}
                   </AnimatePresence>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {isBlacklistModalOpen && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsBlacklistModalOpen(false)}
+                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              />
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-2xl bg-[#151619] border border-white/10 rounded-[2rem] lg:rounded-[3rem] p-6 lg:p-10 space-y-8 shadow-2xl overflow-hidden"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 lg:w-12 lg:h-12 bg-orange-500/10 rounded-xl flex items-center justify-center">
+                      <Ban className="w-5 h-5 lg:w-6 lg:h-6 text-orange-500" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl lg:text-3xl font-bold italic leading-tight">Blacklisted Videos</h3>
+                      <p className="text-xs lg:text-sm text-white/40 uppercase font-black tracking-widest">Restricted content</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsBlacklistModalOpen(false)}
+                    className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all group"
+                  >
+                    <Plus className="w-6 h-6 rotate-45 text-white/40 group-hover:text-white transition-colors" />
+                  </button>
+                </div>
+
+                <div className="space-y-3 max-h-[50vh] lg:max-h-[60vh] overflow-y-auto custom-scrollbar pr-4 -mr-4">
+                  {blacklist.length > 0 ? (
+                    blacklist.map((item) => (
+                      <div
+                        key={item.videoId}
+                        className="flex items-center justify-between p-4 bg-white/[0.03] border border-white/5 rounded-2xl group hover:border-orange-500/30 transition-all"
+                      >
+                        <div className="flex items-center gap-4 min-w-0">
+                          <img src={`https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg`} alt="" className="w-20 h-12 object-cover rounded-lg" />
+                          <div className="min-w-0">
+                            <h4 className="font-bold truncate text-sm text-white/80 italic">{item.reason || 'No title'}</h4>
+                            <p className="text-[10px] text-white/20 font-mono tracking-widest">{item.videoId}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleUnbanVideo(item.videoId)}
+                          className="px-4 py-2 bg-orange-500/10 hover:bg-orange-500 text-orange-500 hover:text-white border border-orange-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0"
+                        >
+                          Unban
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="py-20 flex flex-col items-center justify-center text-center space-y-4">
+                      <div className="w-20 h-20 bg-white/[0.02] rounded-full flex items-center justify-center">
+                        <Ban className="w-10 h-10 text-white/5" />
+                      </div>
+                      <p className="text-white/20 text-lg italic font-medium">No videos blacklisted</p>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             </div>

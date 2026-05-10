@@ -62,6 +62,63 @@ const requesterLastRequestAt = new Map<string, number>();
 let currentPlayerState: PlayerState | null = null;
 let masterSocketId: string | null = null;
 
+async function triggerSkip() {
+  const current = await prisma.request.findFirst({
+    where: { status: "playing" },
+  });
+  if (current) {
+    await prisma.request.update({
+      where: { id: current.id },
+      data: { status: "played" },
+    });
+  }
+
+  const next = await prisma.request.findFirst({
+    where: { status: "pending" },
+    orderBy: [
+      { order: "asc" },
+      { votes: "desc" },
+      { timestamp: "asc" }
+    ],
+  });
+
+  if (next) {
+    await prisma.request.update({
+      where: { id: next.id },
+      data: { status: "playing" },
+    });
+    currentPlayerState = {
+      videoId: next.videoId,
+      title: next.title,
+      thumbnail: next.thumbnail || "",
+      playing: true,
+      currentTime: 0,
+      duration: 0,
+      requesterName: next.requesterName,
+    };
+  } else {
+    currentPlayerState = null;
+  }
+
+  const updatedQueue = await prisma.request.findMany({
+    where: { status: "pending" },
+    orderBy: [
+      { order: "asc" },
+      { votes: "desc" },
+      { timestamp: "asc" }
+    ],
+  });
+  const history = await prisma.request.findMany({
+    where: { status: "played" },
+    orderBy: { timestamp: "desc" },
+    take: 50
+  });
+  io.emit("queue-update", updatedQueue);
+  io.emit("history-update", history);
+  io.emit("player-state-sync", currentPlayerState);
+  io.emit("active-track-update", next);
+}
+
 function sanitizeSettings(raw: Partial<AppSettings>): AppSettings {
   return {
     requestCooldownSeconds: Math.max(0, Math.min(3600, Math.floor(raw.requestCooldownSeconds ?? appSettings.requestCooldownSeconds))),
@@ -537,60 +594,7 @@ io.on("connection", async (socket) => {
   }));
   
   socket.on("admin-skip", adminGuard(async () => {
-    const current = await prisma.request.findFirst({
-      where: { status: "playing" },
-    });
-    if (current) {
-      await prisma.request.update({
-        where: { id: current.id },
-        data: { status: "played" },
-      });
-    }
-  
-    const next = await prisma.request.findFirst({
-      where: { status: "pending" },
-      orderBy: [
-        { order: "asc" },
-        { votes: "desc" },
-        { timestamp: "asc" }
-      ],
-    });
-  
-    if (next) {
-      await prisma.request.update({
-        where: { id: next.id },
-        data: { status: "playing" },
-      });
-      currentPlayerState = {
-        videoId: next.videoId,
-        title: next.title,
-        thumbnail: next.thumbnail || "",
-        playing: true,
-        currentTime: 0,
-        duration: 0,
-        requesterName: next.requesterName,
-      };
-    } else {
-      currentPlayerState = null;
-    }
-  
-    const updatedQueue = await prisma.request.findMany({
-      where: { status: "pending" },
-      orderBy: [
-        { order: "asc" },
-        { votes: "desc" },
-        { timestamp: "asc" }
-      ],
-    });
-    const history = await prisma.request.findMany({
-      where: { status: "played" },
-      orderBy: { timestamp: "desc" },
-      take: 50
-    });
-    io.emit("queue-update", updatedQueue);
-    io.emit("history-update", history);
-    io.emit("player-state-sync", currentPlayerState);
-    io.emit("active-track-update", next);
+    await triggerSkip();
   }));
   
   socket.on("admin-delete-request", adminGuard(async (requestId: string) => {
@@ -648,24 +652,56 @@ io.on("connection", async (socket) => {
           update: {},
           create: { videoId: data.videoId, reason: data.title }
       });
-      // Delete if in queue
+      
+      // Delete if in queue (all pending instances)
       await prisma.request.deleteMany({
           where: { videoId: data.videoId, status: "pending" }
       });
-      const updatedQueue = await prisma.request.findMany({
-          where: { status: "pending" },
-          orderBy: [
-            { order: "asc" },
-            { votes: "desc" },
-            { timestamp: "asc" }
-          ],
-      });
-      io.emit("queue-update", updatedQueue);
+
+      // If it's currently playing, skip it
+      if (currentPlayerState && currentPlayerState.videoId === data.videoId) {
+          await triggerSkip();
+      } else {
+          // Refresh queue since we deleted pending items
+          const updatedQueue = await prisma.request.findMany({
+              where: { status: "pending" },
+              orderBy: [
+                { order: "asc" },
+                { votes: "desc" },
+                { timestamp: "asc" }
+              ],
+          });
+          io.emit("queue-update", updatedQueue);
+      }
+
+      // Also refresh blacklist for anyone watching
+      const blacklist = await prisma.blacklist.findMany();
+      io.emit("blacklist-update", blacklist);
+      
       socket.emit("success-toast", "Video has been blacklisted.");
+  }));
+
+  socket.on("admin-get-blacklist", adminGuard(async () => {
+    const blacklist = await prisma.blacklist.findMany();
+    socket.emit("blacklist-update", blacklist);
+  }));
+
+  socket.on("admin-unban-video", adminGuard(async (videoId: string) => {
+    await prisma.blacklist.delete({ where: { videoId } });
+    const blacklist = await prisma.blacklist.findMany();
+    io.emit("blacklist-update", blacklist);
+    socket.emit("success-toast", "Video removed from blacklist.");
   }));
   
   socket.on("admin-add-song", adminGuard(async (data: any) => {
     const { videoId, title, thumbnail } = data;
+
+    // Check if blacklisted
+    const isBlacklisted = await prisma.blacklist.findUnique({ where: { videoId } });
+    if (isBlacklisted) {
+      return socket.emit("error-toast", "This song is blacklisted.");
+    }
+
     try {
       const maxOrderRequest = await prisma.request.findFirst({
         where: { status: "pending" },
@@ -702,6 +738,13 @@ io.on("connection", async (socket) => {
   
   socket.on("admin-play-now", adminGuard(async (data: any) => {
     const { videoId, title, thumbnail } = data;
+
+    // Check if blacklisted
+    const isBlacklisted = await prisma.blacklist.findUnique({ where: { videoId } });
+    if (isBlacklisted) {
+      return socket.emit("error-toast", "This song is blacklisted.");
+    }
+
     try {
       await prisma.request.updateMany({
           where: { status: "playing" },
