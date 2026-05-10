@@ -1,6 +1,6 @@
 import express from "express";
 import { createServer } from "http";
-import { Server } from "socket.io";
+import { Server, Socket } from "socket.io";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { PrismaClient } from "@prisma/client";
@@ -30,7 +30,7 @@ const PORT = 3000;
 app.set("trust proxy", true);
 
 // Custom Socket type with admin flag
-interface AuthenticatedSocket extends Server["sockets"] {
+interface AuthenticatedSocket extends Socket {
   isAdmin?: boolean;
 }
 
@@ -380,7 +380,7 @@ io.on("connection", async (socket) => {
     const now = Date.now();
 
     if (appSettings.requestCooldownSeconds > 0) {
-      const lastRequestAt = requesterLastRequestAt.get(clientIp) ?? 0;
+      const lastRequestAt = requesterLastRequestAt.get(ipString) ?? 0;
       const secondsSinceLastRequest = Math.floor((now - lastRequestAt) / 1000);
       if (secondsSinceLastRequest < appSettings.requestCooldownSeconds) {
         const remaining = appSettings.requestCooldownSeconds - secondsSinceLastRequest;
@@ -463,7 +463,7 @@ io.on("connection", async (socket) => {
           { timestamp: "asc" }
         ],
       });
-      requesterLastRequestAt.set(clientIp, now);
+      requesterLastRequestAt.set(ipString, now);
       io.emit("queue-update", updatedQueue);
       socket.emit("success-toast", "Song added to queue!");
     } catch (err) {
@@ -745,6 +745,21 @@ io.on("connection", async (socket) => {
     }
   }));
   
+  socket.on("admin-delete-history-video", adminGuard(async (videoId: string) => {
+    await prisma.request.deleteMany({ where: { videoId, status: "played" } });
+    const history = await prisma.request.findMany({
+      where: { status: "played" },
+      orderBy: { timestamp: "desc" },
+      take: 50
+    });
+    io.emit("history-update", history);
+  }));
+
+  socket.on("admin-clear-history", adminGuard(async () => {
+    await prisma.request.deleteMany({ where: { status: "played" } });
+    io.emit("history-update", []);
+  }));
+
   socket.on("admin-get-history", adminGuard(async () => {
     const history = await prisma.request.findMany({
       where: { status: "played" },

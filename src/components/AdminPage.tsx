@@ -132,6 +132,7 @@ function SortableItem({ item, onDelete, onBanVideo }: {
 }
 
 export default function AdminPage({ socket }: AdminPageProps) {
+  const ReactPlayerAny = ReactPlayer as any;
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isSocketAuthenticated, setIsSocketAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
@@ -223,12 +224,10 @@ export default function AdminPage({ socket }: AdminPageProps) {
         artwork: [{ src: currentVideo.thumbnail || '', sizes: '512x512' }]
       });
       navigator.mediaSession.setActionHandler('play', () => {
-        if (playerType === 'youtube') playerRef.current?.playVideo();
-        else setIsPlaying(true);
+        setIsPlaying(true);
       });
       navigator.mediaSession.setActionHandler('pause', () => {
-        if (playerType === 'youtube') playerRef.current?.pauseVideo();
-        else setIsPlaying(false);
+        setIsPlaying(false);
       });
       navigator.mediaSession.setActionHandler('nexttrack', () => handleSkip());
     }
@@ -411,6 +410,18 @@ export default function AdminPage({ socket }: AdminPageProps) {
     }
   };
 
+  const handleDeleteHistoryVideo = (videoId: string, title: string) => {
+    if (confirm(`Remove "${title}" from playback history?`)) {
+      socket.emit('admin-delete-history-video', videoId);
+    }
+  };
+
+  const handleClearHistory = () => {
+    if (confirm("Permanently clear all playback history?")) {
+      socket.emit('admin-clear-history');
+    }
+  };
+
   const handleBanVideo = (videoId: string, title: string) => {
     if (confirm(`Blacklist this video?\n${title}`)) {
       socket.emit('admin-ban-video', { videoId, title });
@@ -590,10 +601,10 @@ export default function AdminPage({ socket }: AdminPageProps) {
         <div className="bg-black aspect-video rounded-[1.5rem] lg:rounded-[2.5rem] overflow-hidden border border-white/10 relative shadow-2xl shadow-orange-500/5">
           {currentVideo?.videoId ? (
             <Suspense fallback={<PlayerFallback />}>
-              <ReactPlayer
+              <ReactPlayerAny
                 key={currentVideo.videoId}
                 src={`https://www.youtube.com/watch?v=${currentVideo.videoId}`}
-                ref={(player) => {
+                ref={(player: any) => {
                   playerRef.current = player;
                   if (player) console.log('[Admin] ReactPlayer ref assigned');
                 }}
@@ -605,10 +616,9 @@ export default function AdminPage({ socket }: AdminPageProps) {
                 volume={volume}
                 muted={!hasInteracted}
                 playsinline={true}
-                autoPlay={true}
                 onReady={() => console.log('[Admin] ReactPlayer Ready')}
                 onStart={() => console.log('[Admin] ReactPlayer Started')}
-                onProgress={(progress) => {
+                onProgress={(progress: any) => {
                   if (isMasterRef.current && isSocketAuthenticatedRef.current) {
                     const duration = playerRef.current?.getDuration?.() ?? 0;
                     if (duration > 0) {
@@ -619,7 +629,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
                     }
                   }
                 }}
-                onDuration={(duration) => {
+                onDuration={(duration: number) => {
                   if (isMasterRef.current && isSocketAuthenticatedRef.current && currentVideoRef.current) {
                     socket.emit('admin-player-tick', {
                       currentTime: playerRef.current?.getCurrentTime?.() ?? 0,
@@ -639,12 +649,12 @@ export default function AdminPage({ socket }: AdminPageProps) {
                   console.log('[Admin] ReactPlayer Ended');
                   handleEnded();
                 }}
-                onError={(e) => console.error('[Admin] ReactPlayer Error:', e)}
+                onError={(e: any) => console.error('[Admin] ReactPlayer Error:', e)}
                 config={{
                   youtube: {
                     playerVars: {
                       rel: 0,
-                      origin: window.location.origin,
+                      origin: typeof window !== 'undefined' ? window.location.origin : '',
                       iv_load_policy: 3,
                       modestbranding: 1
                     }
@@ -981,12 +991,22 @@ export default function AdminPage({ socket }: AdminPageProps) {
                       <p className="text-xs lg:text-sm text-white/40 uppercase font-black tracking-widest">Review past sessions</p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setIsHistoryModalOpen(false)}
-                    className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all group"
-                  >
-                    <Plus className="w-6 h-6 rotate-45 text-white/40 group-hover:text-white transition-colors" />
-                  </button>
+                  <div className="flex items-center gap-3">
+                    {history.length > 0 && (
+                      <button
+                        onClick={handleClearHistory}
+                        className="px-4 py-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                      >
+                        Clear History
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setIsHistoryModalOpen(false)}
+                      className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all group"
+                    >
+                      <Plus className="w-6 h-6 rotate-45 text-white/40 group-hover:text-white transition-colors" />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6 max-h-[50vh] lg:max-h-[60vh] overflow-y-auto custom-scrollbar pr-4 -mr-4">
@@ -1035,6 +1055,13 @@ export default function AdminPage({ socket }: AdminPageProps) {
                                 className="flex-1 py-2 bg-orange-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-orange-500/20"
                               >
                                 Add Queue
+                              </button>
+                              <button
+                                onClick={() => handleDeleteHistoryVideo(item.videoId, item.title)}
+                                className="p-2 bg-white/5 hover:bg-red-500/10 text-white/20 hover:text-red-500 rounded-xl transition-all border border-white/5"
+                                title="Remove from history"
+                              >
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
                           </div>
