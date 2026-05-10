@@ -910,7 +910,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="relative w-full max-w-4xl bg-[#151619] border border-white/10 rounded-[2rem] lg:rounded-[3rem] p-6 lg:p-10 space-y-8 shadow-2xl overflow-hidden"
+                className="relative w-full max-w-5xl bg-[#151619] border border-white/10 rounded-[2rem] lg:rounded-[3rem] p-6 lg:p-10 space-y-8 shadow-2xl overflow-hidden"
               >
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
@@ -965,7 +965,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
                           </div>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-bold truncate text-sm lg:text-base group-hover:text-orange-500 transition-colors italic mb-3">{video.title}</h4>
+                          <h4 className="font-bold line-clamp-2 text-sm lg:text-base group-hover:text-orange-500 transition-colors italic mb-3">{video.title}</h4>
                           <div className="flex gap-2">
                             <button
                               onClick={() => handlePlayNow(video)}
@@ -1017,7 +1017,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="relative w-full max-w-4xl bg-[#151619] border border-white/10 rounded-[2rem] lg:rounded-[3rem] p-6 lg:p-10 space-y-8 shadow-2xl overflow-hidden"
+                className="relative w-full max-w-5xl bg-[#151619] border border-white/10 rounded-[2rem] lg:rounded-[3rem] p-6 lg:p-10 space-y-8 shadow-2xl overflow-hidden"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -1071,14 +1071,15 @@ export default function AdminPage({ socket }: AdminPageProps) {
                           </div>
 
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2 mb-3">
-                              <h4 className="font-bold truncate text-sm lg:text-base text-white/80 italic group-hover:text-white transition-colors">
+                            <div className="flex flex-col gap-1 mb-3">
+                              <h4 className="font-bold line-clamp-2 text-sm lg:text-base text-white/80 italic group-hover:text-white transition-colors">
                                 {item.title}
                               </h4>
                               {item.playCount && item.playCount > 1 && (
-                                <span className="px-2 py-0.5 bg-orange-500/10 text-orange-500 border border-orange-500/20 rounded-lg text-[10px] font-black uppercase tracking-wider shrink-0">
-                                  Played {item.playCount}x
-                                </span>
+                                <div className="flex items-center gap-1.5 text-orange-500/100">
+                                  <Clock className="w-3 h-3" />
+                                  <span className="text-[10px] font-black uppercase tracking-widest">{item.playCount}x Played</span>
+                                </div>
                               )}
                             </div>
                             <div className="flex gap-2">
