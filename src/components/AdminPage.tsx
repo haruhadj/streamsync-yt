@@ -162,6 +162,22 @@ export default function AdminPage({ socket }: AdminPageProps) {
   const playerRef = useRef<any>(null);
   const lastSkippedId = useRef<string | null>(null);
 
+  const isMasterRef = useRef(isMaster);
+  useEffect(() => {
+    isMasterRef.current = isMaster;
+  }, [isMaster]);
+
+  const isSocketAuthenticatedRef = useRef(isSocketAuthenticated);
+  useEffect(() => {
+    isSocketAuthenticatedRef.current = isSocketAuthenticated;
+  }, [isSocketAuthenticated]);
+
+  const currentVideoRef = useRef(currentVideo);
+  useEffect(() => {
+    currentVideoRef.current = currentVideo;
+  }, [currentVideo]);
+
+
   // Keep-alive hack: Play nearly silent audio to prevent background throttling
   useEffect(() => {
     let ctx: AudioContext | null = null;
@@ -468,45 +484,26 @@ export default function AdminPage({ socket }: AdminPageProps) {
   useEffect(() => {
     if (!currentVideo || !isSocketAuthenticated) return;
 
-    const interval = setInterval(async () => {
-      if (!playerRef.current || !isMaster) return;
-
-      let curr = playerRef.current.getCurrentTime?.() ?? playerRef.current.getInternalPlayer?.()?.getCurrentTime?.() ?? 0;
-      let duration = playerRef.current.getDuration?.() ?? 0;
-
-      // Manual end-of-song check for background tabs
-      if (duration > 0 && curr >= duration - 1.5 && isPlaying && lastSkippedId.current !== currentVideo.id) {
-        lastSkippedId.current = currentVideo.id;
-        handleEnded();
-        return;
-      }
-
-      // High frequency tick for progress bars
-      socket.emit('admin-player-tick', {
-        currentTime: curr,
-        duration: duration,
-      });
-    }, 500);
-
-    // Occasional full state sync (every 5 seconds or on state change)
+    // Occasional full state sync (every 5 seconds)
     const stateSyncInterval = setInterval(() => {
       if (!playerRef.current || !isMaster) return;
-      let curr = playerRef.current.getCurrentTime?.() ?? 0;
-      let duration = playerRef.current.getDuration?.() ?? 0;
+      const curr = playerRef.current?.getCurrentTime?.() ?? 0;
+      const duration = playerRef.current?.getDuration?.() ?? 0;
 
-      socket.emit('admin-player-state', {
-        videoId: currentVideo.videoId,
-        title: currentVideo.title,
-        thumbnail: currentVideo.thumbnail,
-        requesterName: currentVideo.requesterName,
-        playing: isPlaying,
-        currentTime: curr,
-        duration: duration,
-      });
+      if (duration > 0) {
+        socket.emit('admin-player-state', {
+          videoId: currentVideo.videoId,
+          title: currentVideo.title,
+          thumbnail: currentVideo.thumbnail,
+          requesterName: currentVideo.requesterName,
+          playing: isPlaying,
+          currentTime: curr,
+          duration: duration,
+        });
+      }
     }, 5000);
 
     return () => {
-      clearInterval(interval);
       clearInterval(stateSyncInterval);
     };
   }, [socket, currentVideo, isPlaying, isSocketAuthenticated, isMaster]);
@@ -604,12 +601,32 @@ export default function AdminPage({ socket }: AdminPageProps) {
                 height="100%"
                 playing={isMaster && isPlaying && hasInteracted}
                 controls={true}
+                progressInterval={500}
                 volume={volume}
                 muted={!hasInteracted}
                 playsinline={true}
                 autoPlay={true}
                 onReady={() => console.log('[Admin] ReactPlayer Ready')}
                 onStart={() => console.log('[Admin] ReactPlayer Started')}
+                onProgress={(progress) => {
+                  if (isMasterRef.current && isSocketAuthenticatedRef.current) {
+                    const duration = playerRef.current?.getDuration?.() ?? 0;
+                    if (duration > 0) {
+                      socket.emit('admin-player-tick', {
+                        currentTime: progress.playedSeconds,
+                        duration: duration,
+                      });
+                    }
+                  }
+                }}
+                onDuration={(duration) => {
+                  if (isMasterRef.current && isSocketAuthenticatedRef.current && currentVideoRef.current) {
+                    socket.emit('admin-player-tick', {
+                      currentTime: playerRef.current?.getCurrentTime?.() ?? 0,
+                      duration: duration,
+                    });
+                  }
+                }}
                 onPlay={() => {
                   console.log('[Admin] ReactPlayer Play');
                   setIsPlaying(true);
@@ -766,8 +783,15 @@ export default function AdminPage({ socket }: AdminPageProps) {
           >
             <div className="flex items-center gap-3">
               <ShieldCheck className={`w-5 h-5 ${isMaster ? 'text-orange-500' : 'text-white/20'}`} />
-              <span className="text-xs font-black uppercase tracking-widest">
+              <span className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
                 {isMaster ? 'Master Active' : (masterSocketId ? 'Take Over Master' : 'Claim Master')}
+                {isMaster && isPlaying && (
+                  <motion.span
+                    animate={{ opacity: [0.2, 1, 0.2] }}
+                    transition={{ repeat: Infinity, duration: 1 }}
+                    className="w-1.5 h-1.5 bg-orange-500 rounded-full"
+                  />
+                )}
               </span>
             </div>
             <div className={`w-10 h-5 rounded-full relative transition-colors ${isMaster ? 'bg-orange-500' : 'bg-white/10'}`}>

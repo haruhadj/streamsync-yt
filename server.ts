@@ -518,12 +518,22 @@ io.on("connection", async (socket) => {
     socket.broadcast.emit("player-state-sync", state);
   }));
 
+  let lastTickLogAt = 0;
   socket.on("admin-player-tick", adminGuard((tick: { currentTime: number; duration: number }) => {
     if (currentPlayerState) {
       currentPlayerState.currentTime = tick.currentTime;
       currentPlayerState.duration = tick.duration;
     }
-    socket.broadcast.emit("player-tick", tick);
+    
+    // Log once every 5 seconds to avoid spam
+    const now = Date.now();
+    if (now - lastTickLogAt > 5000) {
+      console.log(`[Tick] ${currentPlayerState?.title || 'Unknown'}: ${Math.floor(tick.currentTime)}/${Math.floor(tick.duration || 0)}s`);
+      lastTickLogAt = now;
+    }
+
+    console.log(`[Server] Relaying player-tick to clients: ${tick.currentTime}/${tick.duration}`);
+    io.emit("player-tick", tick);
   }));
   
   socket.on("admin-skip", adminGuard(async () => {

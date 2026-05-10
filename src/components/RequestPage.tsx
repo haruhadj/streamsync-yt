@@ -34,13 +34,6 @@ interface AppSettings {
   defaultVolume: number;
 }
 
-const formatTime = (seconds: number) => {
-  if (!seconds || isNaN(seconds)) return "0:00";
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-};
-
 export default function RequestPage({ socket }: RequestPageProps) {
   const [query, setQuery] = useState('');
   const [username, setUsername] = useState('');
@@ -99,13 +92,17 @@ export default function RequestPage({ socket }: RequestPageProps) {
     });
 
     socket.on('player-state-sync', (state) => {
+      console.log('[Request] Received player-state-sync:', state);
       setNowPlaying(state);
     });
 
     socket.on('player-tick', (tick: { currentTime: number; duration: number }) => {
+      console.log('[Request] Received player-tick:', tick);
       setNowPlaying((prev: any) => {
         if (!prev) return null;
-        return { ...prev, currentTime: tick.currentTime, duration: tick.duration };
+        const currentTime = typeof tick.currentTime === 'number' ? tick.currentTime : prev.currentTime;
+        const duration = typeof tick.duration === 'number' ? tick.duration : prev.duration;
+        return { ...prev, currentTime, duration };
       });
     });
 
@@ -127,6 +124,7 @@ export default function RequestPage({ socket }: RequestPageProps) {
       socket.off('queue-update');
       socket.off('history-update');
       socket.off('player-state-sync');
+      socket.off('player-tick');
       socket.off('success-toast');
       socket.off('error-toast');
       socket.off('settings-update');
@@ -175,7 +173,7 @@ export default function RequestPage({ socket }: RequestPageProps) {
   const calculateWaitTime = (index: number) => {
     const AVG_SONG_DURATION = 240; // 4 minutes
     let time = 0;
-    
+
     // Time remaining on current song
     if (nowPlaying && nowPlaying.duration) {
       time += Math.max(0, nowPlaying.duration - (nowPlaying.currentTime || 0));
@@ -395,20 +393,6 @@ export default function RequestPage({ socket }: RequestPageProps) {
                           <User className="w-3 h-3" />
                           {nowPlaying.requesterName === 'Admin' ? 'Added by Admin' : (nowPlaying.requesterName || 'anonymous')}
                         </div>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="space-y-2 pt-2 lg:pt-4">
-                      <div className="h-1.5 lg:h-2 bg-white/5 rounded-full overflow-hidden relative cursor-not-allowed">
-                        <div
-                          className="absolute top-0 left-0 h-full bg-gradient-to-r from-orange-600 to-orange-400 shadow-[0_0_10px_rgba(249,115,22,0.5)] transition-all duration-1000 ease-linear rounded-full"
-                          style={{ width: `${Math.min(100, ((nowPlaying.currentTime || 0) / (nowPlaying.duration || 1)) * 100)}%` }}
-                        />
-                      </div>
-                      <div className="flex justify-between text-[10px] lg:text-xs font-bold text-white/40 uppercase tracking-widest">
-                        <span className="font-mono">{formatTime(nowPlaying.currentTime)}</span>
-                        <span className="font-mono">{formatTime(nowPlaying.duration)}</span>
                       </div>
                     </div>
                   </div>
