@@ -1,3 +1,2 @@
--have a setting to reset the songs play count in admin page
--move the configurable settings into a clickable icon and let the the live queue fill it 
--add the song playcount to src\components\AdminPage.tsx:874-908, in live queue in adminpage <aside> , and in the upcoming queue in requests page
+- the src\components\AdminPage.tsx:974-979 to clear all queued songs do not work
+- the src\components\AdminPage.tsx:1152-1170 clear history do not do anything, it did not clear the history

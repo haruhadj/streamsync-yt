@@ -104,7 +104,7 @@ function SortableItem({ item, onDelete, onBanVideo }: {
       <div className="flex-1 min-w-0">
         <h4 className="font-medium truncate text-xs sm:text-sm">{item.title}</h4>
         <div className="flex items-center gap-2 mt-0.5">
-          <p className={`text-[10px] uppercase font-bold ${item.requesterName === 'Admin' ? 'text-orange-500' : 'text-white/30'} tracking-widest truncate`}>
+          <p className={`text-[10px] uppercase font-bold ${item.requesterName === 'Admin' ? 'text-orange-500' : 'text-white/75'} tracking-widest truncate`}>
             {item.requesterName === 'Admin' ? 'Admin' : (item.requesterName || 'anonymous')}
           </p>
           <span className="text-white/10 text-[10px]">•</span>
@@ -114,7 +114,7 @@ function SortableItem({ item, onDelete, onBanVideo }: {
               <span className="text-white/10 text-[10px]">•</span>
               <div className="flex items-center gap-1 text-orange-500/80">
                 <RotateCcw className="w-2.5 h-2.5" />
-                <span className="text-[10px] font-black uppercase tracking-widest">{item.playCount}x</span>
+                <span className="text-[10px] font-black uppercase tracking-widest">{item.playCount}x Played</span>
               </div>
             </>
           )}

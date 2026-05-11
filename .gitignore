@@ -12,3 +12,4 @@ deb.db
 *.db-journal
 *.db-shm
 *.db-wal
+pending

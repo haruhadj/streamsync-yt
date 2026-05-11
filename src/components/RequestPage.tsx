@@ -79,7 +79,13 @@ export default function RequestPage({ socket }: RequestPageProps) {
     });
 
     socket.on('history-update', (updatedHistory: QueueItem[]) => {
-      setHistory(updatedHistory);
+      const unique = new Map<string, QueueItem>();
+      updatedHistory.forEach(item => {
+        if (!unique.has(item.videoId)) {
+          unique.set(item.videoId, item);
+        }
+      });
+      setHistory(Array.from(unique.values()));
     });
 
     socket.on('player-state-sync', (state) => {
@@ -437,7 +443,7 @@ export default function RequestPage({ socket }: RequestPageProps) {
                         {item.title}
                       </h4>
                       <div className="flex items-center gap-2 mt-1">
-                        <div className={`flex items-center gap-1 text-[10px] font-bold ${item.requesterName === 'Admin' ? 'text-orange-500' : 'text-white/30'} uppercase tracking-wider shrink-0`}>
+                        <div className={`flex items-center gap-1 text-[10px] font-bold ${item.requesterName === 'Admin' ? 'text-orange-500' : 'text-white/75'} uppercase tracking-wider shrink-0`}>
                           <User className="w-2.5 h-2.5" />
                           <span className="truncate max-w-[60px] sm:max-w-[120px]">
                             {item.requesterName === 'Admin' ? 'Admin' : (item.requesterName || 'anon')}
@@ -450,14 +456,14 @@ export default function RequestPage({ socket }: RequestPageProps) {
                         {(item.playCount ?? 0) >= 1 && (
                           <>
                             <span className="text-white/10 text-[10px]">•</span>
-                            <div className="flex items-center gap-1 text-orange-500/80">
+                            <div className="flex items-center gap-1 text-[10px] font-bold text-orange-500 uppercase tracking-wider flex-none">
                               <RotateCcw className="w-2.5 h-2.5" />
                               <span>{item.playCount}x Played</span>
                             </div>
                           </>
                         )}
                         <span className="text-white/10 text-[10px]">•</span>
-                        <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest whitespace-nowrap flex items-center gap-1">
+                        <div className="text-[10px] font-bold text-white/75 uppercase tracking-widest whitespace-nowrap flex items-center gap-1">
                           <Clock className="w-2.5 h-2.5" />
                           {calculateWaitTime(index)}
                         </div>
