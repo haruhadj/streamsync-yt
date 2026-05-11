@@ -906,6 +906,57 @@ export default function AdminPage({ socket }: AdminPageProps) {
             </button>
           </div>
         </div>
+        {/* Quick Tools */}
+        <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl space-y-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-white/40">Master Player Control</h3>
+            <div className={`w-2 h-2 rounded-full ${isMaster ? 'bg-green-500 animate-pulse' : 'bg-white/10'}`} />
+          </div>
+
+          <button
+            onClick={() => {
+              if (isMaster) {
+                socket.emit('admin-release-master');
+              } else if (masterSocketId) {
+                if (confirm("Another tab is currently the Master. Take over playback control?")) {
+                  socket.emit('admin-claim-master', { force: true });
+                }
+              } else {
+                socket.emit('admin-claim-master');
+              }
+            }}
+            className={`w-full p-4 rounded-xl border transition-all flex items-center justify-between group ${isMaster ? 'bg-orange-500/10 border-orange-500/50 text-orange-500' : 'bg-white/5 border-white/10 text-white/40 hover:border-white/20'}`}
+          >
+            <div className="flex items-center gap-3">
+              <ShieldCheck className={`w-5 h-5 ${isMaster ? 'text-orange-500' : 'text-white/20'}`} />
+              <span className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                {isMaster ? 'Master Active' : (masterSocketId ? 'Take Over Master' : 'Claim Master')}
+                {isMaster && isPlaying && (
+                  <motion.span
+                    animate={{ opacity: [0.2, 1, 0.2] }}
+                    transition={{ repeat: Infinity, duration: 1 }}
+                    className="w-1.5 h-1.5 bg-orange-500 rounded-full"
+                  />
+                )}
+              </span>
+            </div>
+            <div className={`w-10 h-5 rounded-full relative transition-colors ${isMaster ? 'bg-orange-500' : 'bg-white/10'}`}>
+              <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${isMaster ? 'left-6' : 'left-1'}`} />
+            </div>
+          </button>
+
+          {isMaster && (
+            <p className="text-[10px] text-orange-500/60 font-medium italic text-center px-2">
+              Authoritative sync active. Only one master should be active per session.
+            </p>
+          )}
+
+          {!isMaster && masterSocketId && (
+            <p className="text-[10px] text-white/20 font-medium italic text-center px-2">
+              Another tab is currently the Master Player.
+            </p>
+          )}
+        </div>
       </section>
 
       {/* Sidebar Queue Management */}
@@ -961,58 +1012,6 @@ export default function AdminPage({ socket }: AdminPageProps) {
               )}
             </SortableContext>
           </DndContext>
-        </div>
-
-        {/* Quick Tools */}
-        <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl space-y-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-white/40">Master Player Control</h3>
-            <div className={`w-2 h-2 rounded-full ${isMaster ? 'bg-green-500 animate-pulse' : 'bg-white/10'}`} />
-          </div>
-
-          <button
-            onClick={() => {
-              if (isMaster) {
-                socket.emit('admin-release-master');
-              } else if (masterSocketId) {
-                if (confirm("Another tab is currently the Master. Take over playback control?")) {
-                  socket.emit('admin-claim-master', { force: true });
-                }
-              } else {
-                socket.emit('admin-claim-master');
-              }
-            }}
-            className={`w-full p-4 rounded-xl border transition-all flex items-center justify-between group ${isMaster ? 'bg-orange-500/10 border-orange-500/50 text-orange-500' : 'bg-white/5 border-white/10 text-white/40 hover:border-white/20'}`}
-          >
-            <div className="flex items-center gap-3">
-              <ShieldCheck className={`w-5 h-5 ${isMaster ? 'text-orange-500' : 'text-white/20'}`} />
-              <span className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
-                {isMaster ? 'Master Active' : (masterSocketId ? 'Take Over Master' : 'Claim Master')}
-                {isMaster && isPlaying && (
-                  <motion.span
-                    animate={{ opacity: [0.2, 1, 0.2] }}
-                    transition={{ repeat: Infinity, duration: 1 }}
-                    className="w-1.5 h-1.5 bg-orange-500 rounded-full"
-                  />
-                )}
-              </span>
-            </div>
-            <div className={`w-10 h-5 rounded-full relative transition-colors ${isMaster ? 'bg-orange-500' : 'bg-white/10'}`}>
-              <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${isMaster ? 'left-6' : 'left-1'}`} />
-            </div>
-          </button>
-
-          {isMaster && (
-            <p className="text-[10px] text-orange-500/60 font-medium italic text-center px-2">
-              Authoritative sync active. Only one master should be active per session.
-            </p>
-          )}
-
-          {!isMaster && masterSocketId && (
-            <p className="text-[10px] text-white/20 font-medium italic text-center px-2">
-              Another tab is currently the Master Player.
-            </p>
-          )}
         </div>
       </aside>
 
