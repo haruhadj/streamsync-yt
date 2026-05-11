@@ -395,6 +395,7 @@ io.on("connection", async (socket) => {
       if ((socket as any).isAdmin) {
         return handler(...args);
       } else {
+        console.warn(`[AdminGuard] Unauthorized access attempt by socket ${socket.id}`);
         socket.emit("error-toast", "Unauthorized: Admin access required.");
       }
     };
@@ -828,19 +829,36 @@ io.on("connection", async (socket) => {
   }));
   
   socket.on("admin-delete-history-video", adminGuard(async (videoId: string) => {
-    await prisma.request.deleteMany({ where: { videoId, status: "played" } });
-    const historyRaw = await prisma.request.findMany({
-      where: { status: "played" },
-      orderBy: { timestamp: "desc" },
-      take: 50
-    });
-    const history = await getRequestsWithPlayCounts(historyRaw);
-    io.emit("history-update", history);
+    console.log(`[Admin] Deleting history for videoId: ${videoId}`);
+    try {
+      const result = await prisma.request.deleteMany({ where: { videoId, status: "played" } });
+      console.log(`[Admin] Deleted ${result.count} history records for ${videoId}`);
+      
+      const historyRaw = await prisma.request.findMany({
+        where: { status: "played" },
+        orderBy: { timestamp: "desc" },
+        take: 50
+      });
+      const history = await getRequestsWithPlayCounts(historyRaw);
+      io.emit("history-update", history);
+      socket.emit("success-toast", "Video removed from history.");
+    } catch (err) {
+      console.error("[Admin] Error deleting history video:", err);
+      socket.emit("error-toast", "Failed to remove video from history.");
+    }
   }));
-
+ 
   socket.on("admin-clear-history", adminGuard(async () => {
-    await prisma.request.deleteMany({ where: { status: "played" } });
-    io.emit("history-update", []);
+    console.log("[Admin] Clearing all playback history...");
+    try {
+      const result = await prisma.request.deleteMany({ where: { status: "played" } });
+      console.log(`[Admin] Deleted ${result.count} history records.`);
+      io.emit("history-update", []);
+      socket.emit("success-toast", "Playback history cleared.");
+    } catch (err) {
+      console.error("[Admin] Error clearing history:", err);
+      socket.emit("error-toast", "Failed to clear history.");
+    }
   }));
 
   socket.on("admin-get-history", adminGuard(async () => {
@@ -874,27 +892,36 @@ io.on("connection", async (socket) => {
   }));
 
   socket.on("admin-reset-play-counts", adminGuard(async () => {
-    await (prisma as any).songStats.deleteMany();
+    try {
+      await (prisma as any).songStats.deleteMany();
+    } catch (err) {
+      console.error("[Admin] Error resetting play counts:", err);
+      return socket.emit("error-toast", "Failed to reset play counts.");
+    }
     
     // Refresh queue and history to reflect reset counts
-    const queueRaw = await prisma.request.findMany({
-      where: { status: "pending" },
-      orderBy: [{ order: "asc" }, { votes: "desc" }, { timestamp: "asc" }],
-    });
-    const updatedQueue = await getRequestsWithPlayCounts(queueRaw);
-    
-    const historyRaw = await prisma.request.findMany({
-      where: { status: "played" },
-      orderBy: { timestamp: "desc" },
-      take: 50
-    });
-    const updatedHistory = await getRequestsWithPlayCounts(historyRaw);
+    const [queueRaw, historyRaw] = await Promise.all([
+      prisma.request.findMany({
+        where: { status: "pending" },
+        orderBy: [{ order: "asc" }, { votes: "desc" }, { timestamp: "asc" }],
+      }),
+      prisma.request.findMany({
+        where: { status: "played" },
+        orderBy: { timestamp: "desc" },
+        take: 50
+      })
+    ]);
+
+    const [updatedQueue, updatedHistory] = await Promise.all([
+      getRequestsWithPlayCounts(queueRaw),
+      getRequestsWithPlayCounts(historyRaw)
+    ]);
 
     io.emit("queue-update", updatedQueue);
     io.emit("history-update", updatedHistory);
     
     if (currentPlayerState) {
-      (currentPlayerState as any).playCount = 1; // Since it's currently playing, it counts as 1 if we reset
+      (currentPlayerState as any).playCount = 1;
       io.emit("player-state-sync", currentPlayerState);
     }
     

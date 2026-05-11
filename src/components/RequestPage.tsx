@@ -447,12 +447,12 @@ export default function RequestPage({ socket }: RequestPageProps) {
                         <div className="text-[10px] font-black text-orange-500/60 uppercase tracking-widest whitespace-nowrap">
                           {item.votes} {item.votes === 1 ? 'vote' : 'votes'}
                         </div>
-                        {item.playCount && item.playCount > 0 && (
+                        {(item.playCount ?? 0) >= 1 && (
                           <>
                             <span className="text-white/10 text-[10px]">•</span>
                             <div className="flex items-center gap-1 text-orange-500/80">
                               <RotateCcw className="w-2.5 h-2.5" />
-                              <span className="text-[10px] font-black uppercase tracking-widest">{item.playCount}x</span>
+                              <span>{item.playCount}x Played</span>
                             </div>
                           </>
                         )}
@@ -512,7 +512,7 @@ export default function RequestPage({ socket }: RequestPageProps) {
                       </h4>
 
                       <div className="flex items-center gap-2 mt-1 w-full overflow-hidden">
-                        {item.playCount && item.playCount > 0 ? (
+                        {(item.playCount ?? 0) >= 1 ? (
                           <div className="flex items-center gap-1 text-[10px] font-bold text-orange-500 uppercase tracking-wider flex-none">
                             <RotateCcw className="w-2.5 h-2.5" />
                             <span>{item.playCount}x Played</span>

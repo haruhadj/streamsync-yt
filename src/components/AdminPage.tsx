@@ -109,7 +109,7 @@ function SortableItem({ item, onDelete, onBanVideo }: {
           </p>
           <span className="text-white/10 text-[10px]">•</span>
           <p className="text-[10px] font-black text-orange-500 whitespace-nowrap">{item.votes} votes</p>
-          {item.playCount && item.playCount > 0 && (
+          {(item.playCount ?? 0) >= 1 && (
             <>
               <span className="text-white/10 text-[10px]">•</span>
               <div className="flex items-center gap-1 text-orange-500/80">
@@ -301,16 +301,13 @@ export default function AdminPage({ socket }: AdminPageProps) {
     });
 
     socket.on('history-update', (updatedHistory: QueueItem[]) => {
-      const grouped = new Map<string, QueueItem>();
+      const unique = new Map<string, QueueItem>();
       updatedHistory.forEach(item => {
-        if (grouped.has(item.videoId)) {
-          const existing = grouped.get(item.videoId)!;
-          existing.playCount = (existing.playCount || 1) + 1;
-        } else {
-          grouped.set(item.videoId, { ...item, playCount: 1 });
+        if (!unique.has(item.videoId)) {
+          unique.set(item.videoId, item);
         }
       });
-      setHistory(Array.from(grouped.values()));
+      setHistory(Array.from(unique.values()));
     });
 
     socket.on('settings-update', (nextSettings: AppSettings) => {
@@ -881,10 +878,10 @@ export default function AdminPage({ socket }: AdminPageProps) {
               <p className="text-xs lg:text-[13px] uppercase font-black text-white/75 tracking-widest truncate">
                 {currentVideo?.requesterName === 'Admin' ? 'Added by Admin' : `Requested by ${currentVideo?.requesterName || 'anonymous'}`}
               </p>
-              {currentVideo?.playCount && currentVideo.playCount > 0 && (
+              {(currentVideo?.playCount ?? 0) >= 1 && (
                 <div className="flex items-center gap-1.5 text-orange-500/100 mt-1">
                   <RotateCcw className="w-3 h-3" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">{currentVideo.playCount}x Played Total</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">{currentVideo?.playCount}x Played Total</span>
                 </div>
               )}
             </div>
@@ -1155,7 +1152,10 @@ export default function AdminPage({ socket }: AdminPageProps) {
                   <div className="flex items-center gap-3">
                     {history.length > 0 && (
                       <button
-                        onClick={handleClearHistory}
+                        onClick={() => {
+                          console.log("[Admin] Clicked Clear History");
+                          handleClearHistory();
+                        }}
                         className="px-4 py-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
                       >
                         Clear History
@@ -1198,7 +1198,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
                               <h4 className="font-bold line-clamp-2 text-sm lg:text-base text-white/80 italic group-hover:text-white transition-colors">
                                 {item.title}
                               </h4>
-                              {item.playCount && item.playCount > 1 && (
+                              {(item.playCount ?? 0) >= 1 && (
                                 <div className="flex items-center gap-1.5 text-orange-500/100">
                                   <Clock className="w-3 h-3" />
                                   <span className="text-[10px] font-black uppercase tracking-widest">{item.playCount}x Played</span>
@@ -1220,14 +1220,20 @@ export default function AdminPage({ socket }: AdminPageProps) {
                               </button>
                               <div className="flex gap-1 shrink-0">
                                 <button
-                                  onClick={() => handleBanVideo(item.videoId, item.title)}
+                                  onClick={() => {
+                                    console.log("[Admin] Clicked Ban Video for", item.videoId);
+                                    handleBanVideo(item.videoId, item.title);
+                                  }}
                                   className="p-2 bg-white/5 hover:bg-orange-500/10 text-white/20 hover:text-orange-500 rounded-xl transition-all border border-white/5"
                                   title="Ban Video"
                                 >
                                   <Ban className="w-4 h-4" />
                                 </button>
                                 <button
-                                  onClick={() => handleDeleteHistoryVideo(item.videoId, item.title)}
+                                  onClick={() => {
+                                    console.log("[Admin] Clicked Remove from history for", item.videoId);
+                                    handleDeleteHistoryVideo(item.videoId, item.title);
+                                  }}
                                   className="p-2 bg-white/5 hover:bg-red-500/10 text-white/20 hover:text-red-500 rounded-xl transition-all border border-white/5"
                                   title="Remove from history"
                                 >
