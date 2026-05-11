@@ -159,6 +159,12 @@ export default function AdminPage({ socket }: AdminPageProps) {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [mobileActiveTab, setMobileActiveTab] = useState<'playback' | 'queue'>('playback');
   const [masterSocketId, setMasterSocketId] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
   const isMaster = socket.id ? (socket.id === masterSocketId) : false;
 
   // Search state
@@ -430,34 +436,61 @@ export default function AdminPage({ socket }: AdminPageProps) {
     socket.emit('admin-delete-request', id);
   };
 
-  const handleClearAll = () => {
-    if (confirm("Clear entire queue?")) {
-      socket.emit('admin-clear-queue');
-    }
-  };
+  const handleClearAll = useCallback(() => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Clear Queue',
+      message: 'Are you sure you want to clear the entire queue?',
+      onConfirm: () => {
+        console.log("[Admin] Initiating Clear Queue...");
+        socket.emit('admin-clear-queue');
+      }
+    });
+  }, [socket]);
 
   const handleDeleteHistoryVideo = (videoId: string, title: string) => {
-    if (confirm(`Remove "${title}" from playback history?`)) {
-      socket.emit('admin-delete-history-video', videoId);
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Remove from History',
+      message: `Remove "${title}" from playback history?`,
+      onConfirm: () => {
+        socket.emit('admin-delete-history-video', videoId);
+      }
+    });
   };
 
-  const handleClearHistory = () => {
-    if (confirm("Permanently clear all playback history?")) {
-      socket.emit('admin-clear-history');
-    }
-  };
+  const handleClearHistory = useCallback(() => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Clear History',
+      message: 'Permanently clear all playback history?',
+      onConfirm: () => {
+        console.log("[Admin] Initiating Clear History...");
+        socket.emit('admin-clear-history');
+      }
+    });
+  }, [socket]);
 
   const handleBanVideo = (videoId: string, title: string) => {
-    if (confirm(`Blacklist this video?\n${title}`)) {
-      socket.emit('admin-ban-video', { videoId, title });
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Ban Video',
+      message: `Blacklist this video?\n${title}`,
+      onConfirm: () => {
+        socket.emit('admin-ban-video', { videoId, title });
+      }
+    });
   };
 
   const handleBanUser = (ip: string) => {
-    if (confirm(`Ban requester IP: ${ip}?`)) {
-      socket.emit('admin-ban-user', ip);
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Ban User',
+      message: `Ban requester IP: ${ip}?`,
+      onConfirm: () => {
+        socket.emit('admin-ban-user', ip);
+      }
+    });
   };
 
   const handleUnbanVideo = (videoId: string) => {
@@ -473,9 +506,14 @@ export default function AdminPage({ socket }: AdminPageProps) {
   };
 
   const handleResetPlayCounts = () => {
-    if (confirm("Are you sure you want to reset ALL song play counts? This cannot be undone.")) {
-      socket.emit('admin-reset-play-counts');
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Reset Play Counts',
+      message: 'Are you sure you want to reset ALL song play counts? This cannot be undone.',
+      onConfirm: () => {
+        socket.emit('admin-reset-play-counts');
+      }
+    });
   };
 
   // Search Logic
@@ -915,9 +953,14 @@ export default function AdminPage({ socket }: AdminPageProps) {
               if (isMaster) {
                 socket.emit('admin-release-master');
               } else if (masterSocketId) {
-                if (confirm("Another tab is currently the Master. Take over playback control?")) {
-                  socket.emit('admin-claim-master', { force: true });
-                }
+                setConfirmDialog({
+                  isOpen: true,
+                  title: 'Take Over Master',
+                  message: 'Another tab is currently the Master. Take over playback control?',
+                  onConfirm: () => {
+                    socket.emit('admin-claim-master', { force: true });
+                  }
+                });
               } else {
                 socket.emit('admin-claim-master');
               }
@@ -1431,6 +1474,49 @@ export default function AdminPage({ socket }: AdminPageProps) {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Custom Confirm Modal */}
+      <AnimatePresence>
+        {confirmDialog.isOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-sm bg-[#151619] border border-white/10 rounded-[2rem] p-6 lg:p-8 space-y-6 shadow-2xl overflow-hidden"
+            >
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold italic">{confirmDialog.title}</h3>
+                <p className="text-sm text-white/60 whitespace-pre-wrap">{confirmDialog.message}</p>
+              </div>
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+                  className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white/60 rounded-xl text-xs font-black uppercase tracking-widest transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    confirmDialog.onConfirm();
+                    setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                  }}
+                  className="flex-1 py-3 bg-orange-500 hover:bg-orange-400 text-black rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-orange-500/20"
+                >
+                  Confirm
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

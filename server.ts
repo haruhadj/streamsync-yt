@@ -633,17 +633,27 @@ io.on("connection", async (socket) => {
   }));
   
   socket.on("admin-delete-request", adminGuard(async (requestId: string) => {
-    await prisma.request.delete({ where: { id: requestId } });
-    const updatedQueueRaw = await prisma.request.findMany({
-      where: { status: "pending" },
-      orderBy: [
-        { order: "asc" },
-        { votes: "desc" },
-        { timestamp: "asc" }
-      ],
-    });
-    const updatedQueue = await getRequestsWithPlayCounts(updatedQueueRaw);
-    io.emit("queue-update", updatedQueue);
+    console.log(`[Admin] Deleting request: ${requestId}`);
+    try {
+      await prisma.$transaction([
+        prisma.vote.deleteMany({ where: { requestId } }),
+        prisma.request.delete({ where: { id: requestId } })
+      ]);
+      const updatedQueueRaw = await prisma.request.findMany({
+        where: { status: "pending" },
+        orderBy: [
+          { order: "asc" },
+          { votes: "desc" },
+          { timestamp: "asc" }
+        ],
+      });
+      const updatedQueue = await getRequestsWithPlayCounts(updatedQueueRaw);
+      io.emit("queue-update", updatedQueue);
+      socket.emit("success-toast", "Request removed.");
+    } catch (err) {
+      console.error("[Admin] Error deleting request:", err);
+      socket.emit("error-toast", "Failed to delete request.");
+    }
   }));
   
   socket.on("admin-reorder-queue", adminGuard(async (newQueueIds: string[]) => {
@@ -670,8 +680,23 @@ io.on("connection", async (socket) => {
   }));
   
   socket.on("admin-clear-queue", adminGuard(async () => {
-    await prisma.request.deleteMany({ where: { status: "pending" } });
-    io.emit("queue-update", []);
+    console.log("[Admin] Clearing all pending requests from queue...");
+    try {
+      await prisma.$transaction(async (tx) => {
+        const pending = await tx.request.findMany({ where: { status: "pending" }, select: { id: true } });
+        const ids = pending.map(r => r.id);
+        if (ids.length > 0) {
+          await tx.vote.deleteMany({ where: { requestId: { in: ids } } });
+          await tx.request.deleteMany({ where: { id: { in: ids } } });
+        }
+      });
+      console.log(`[Admin] Queue cleared.`);
+      io.emit("queue-update", []);
+      socket.emit("success-toast", "Queue cleared successfully.");
+    } catch (err) {
+      console.error("[Admin] Error clearing queue:", err);
+      socket.emit("error-toast", "Failed to clear queue.");
+    }
   }));
   
   socket.on("admin-ban-user", adminGuard(async (ipToBan: string) => {
@@ -831,8 +856,14 @@ io.on("connection", async (socket) => {
   socket.on("admin-delete-history-video", adminGuard(async (videoId: string) => {
     console.log(`[Admin] Deleting history for videoId: ${videoId}`);
     try {
-      const result = await prisma.request.deleteMany({ where: { videoId, status: "played" } });
-      console.log(`[Admin] Deleted ${result.count} history records for ${videoId}`);
+      await prisma.$transaction(async (tx) => {
+        const toDelete = await tx.request.findMany({ where: { videoId, status: "played" }, select: { id: true } });
+        const ids = toDelete.map(r => r.id);
+        if (ids.length > 0) {
+          await tx.vote.deleteMany({ where: { requestId: { in: ids } } });
+          await tx.request.deleteMany({ where: { id: { in: ids } } });
+        }
+      });
       
       const historyRaw = await prisma.request.findMany({
         where: { status: "played" },
@@ -851,8 +882,15 @@ io.on("connection", async (socket) => {
   socket.on("admin-clear-history", adminGuard(async () => {
     console.log("[Admin] Clearing all playback history...");
     try {
-      const result = await prisma.request.deleteMany({ where: { status: "played" } });
-      console.log(`[Admin] Deleted ${result.count} history records.`);
+      await prisma.$transaction(async (tx) => {
+        const toDelete = await tx.request.findMany({ where: { status: "played" }, select: { id: true } });
+        const ids = toDelete.map(r => r.id);
+        if (ids.length > 0) {
+          await tx.vote.deleteMany({ where: { requestId: { in: ids } } });
+          await tx.request.deleteMany({ where: { id: { in: ids } } });
+        }
+      });
+      
       io.emit("history-update", []);
       socket.emit("success-toast", "Playback history cleared.");
     } catch (err) {
