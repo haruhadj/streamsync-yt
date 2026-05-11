@@ -109,6 +109,15 @@ function SortableItem({ item, onDelete, onBanVideo }: {
           </p>
           <span className="text-white/10 text-[10px]">•</span>
           <p className="text-[10px] font-black text-orange-500 whitespace-nowrap">{item.votes} votes</p>
+          {item.playCount && item.playCount > 0 && (
+            <>
+              <span className="text-white/10 text-[10px]">•</span>
+              <div className="flex items-center gap-1 text-orange-500/80">
+                <RotateCcw className="w-2.5 h-2.5" />
+                <span className="text-[10px] font-black uppercase tracking-widest">{item.playCount}x</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-all shrink-0">
@@ -147,6 +156,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
   const [isPlaying, setIsPlaying] = useState(true);
   const [volume, setVolume] = useState(0.5);
   const [sidebarWidth, setSidebarWidth] = useState(500);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [mobileActiveTab, setMobileActiveTab] = useState<'playback' | 'queue'>('playback');
   const [masterSocketId, setMasterSocketId] = useState<string | null>(null);
   const isMaster = socket.id ? (socket.id === masterSocketId) : false;
@@ -462,6 +472,13 @@ export default function AdminPage({ socket }: AdminPageProps) {
     socket.emit('admin-update-settings', settings);
     setTimeout(() => setIsSavingSettings(false), 300);
     toast.success('Settings updated');
+    setIsSettingsModalOpen(false);
+  };
+
+  const handleResetPlayCounts = () => {
+    if (confirm("Are you sure you want to reset ALL song play counts? This cannot be undone.")) {
+      socket.emit('admin-reset-play-counts');
+    }
   };
 
   // Search Logic
@@ -577,16 +594,108 @@ export default function AdminPage({ socket }: AdminPageProps) {
             </button>
           </form>
         </motion.div>
+        <AnimatePresence>
+          {isSettingsModalOpen && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsSettingsModalOpen(false)}
+                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              />
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-md bg-[#151619] border border-white/10 rounded-[2rem] p-6 lg:p-8 space-y-6 shadow-2xl overflow-hidden"
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold flex items-center gap-3 italic">
+                    <LayoutGrid className="w-6 h-6 text-orange-500" />
+                    Settings
+                  </h3>
+                  <button
+                    onClick={() => setIsSettingsModalOpen(false)}
+                    className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all"
+                  >
+                    <Plus className="w-5 h-5 rotate-45 text-white/40" />
+                  </button>
+                </div>
+
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Request Cooldown (seconds)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={3600}
+                      value={settings.requestCooldownSeconds}
+                      onChange={(e) => setSettings(prev => ({ ...prev, requestCooldownSeconds: Number(e.target.value || 0) }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500/50"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Max Queue Size</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={500}
+                      value={settings.maxQueueSize}
+                      onChange={(e) => setSettings(prev => ({ ...prev, maxQueueSize: Number(e.target.value || 1) }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500/50"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Sidebar Width (px)</label>
+                    <input
+                      type="number"
+                      min={300}
+                      max={1200}
+                      value={sidebarWidth}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10) || 300;
+                        setSidebarWidth(val);
+                        localStorage.setItem('sidebarWidth', val.toString());
+                      }}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500/50 transition-all"
+                    />
+                  </div>
+
+                  <div className="h-px bg-white/5 my-2" />
+
+                  <button
+                    onClick={handleResetPlayCounts}
+                    className="w-full p-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all"
+                  >
+                    Reset All Play Counts
+                  </button>
+
+                  <button
+                    onClick={handleSaveSettings}
+                    disabled={isSavingSettings}
+                    className="w-full p-4 bg-orange-500 text-black rounded-xl text-xs font-black uppercase tracking-[0.2em] hover:brightness-110 transition-all disabled:opacity-60 shadow-lg shadow-orange-500/20"
+                  >
+                    {isSavingSettings ? 'Saving...' : 'Save Settings'}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
 
   return (
-    <div 
+    <div
       className="max-w-screen-2xl mx-auto px-4 py-4 lg:py-8 grid gap-8 pb-24 lg:pb-8"
-      style={{ 
+      style={{
         display: 'grid',
-        gridTemplateColumns: typeof window !== 'undefined' && window.innerWidth > 1024 ? `1fr ${sidebarWidth}px` : '1fr' 
+        gridTemplateColumns: typeof window !== 'undefined' && window.innerWidth > 1024 ? `1fr ${sidebarWidth}px` : '1fr'
       }}
     >
       {/* Mobile Bottom Navigation */}
@@ -772,6 +881,12 @@ export default function AdminPage({ socket }: AdminPageProps) {
               <p className="text-xs lg:text-[13px] uppercase font-black text-white/75 tracking-widest truncate">
                 {currentVideo?.requesterName === 'Admin' ? 'Added by Admin' : `Requested by ${currentVideo?.requesterName || 'anonymous'}`}
               </p>
+              {currentVideo?.playCount && currentVideo.playCount > 0 && (
+                <div className="flex items-center gap-1.5 text-orange-500/100 mt-1">
+                  <RotateCcw className="w-3 h-3" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">{currentVideo.playCount}x Played Total</span>
+                </div>
+              )}
             </div>
           </div>
           <div className="flex gap-2 shrink-0">
@@ -800,12 +915,21 @@ export default function AdminPage({ socket }: AdminPageProps) {
             <ListMusic className="w-5 h-5 lg:w-6 lg:h-6 text-orange-500" />
             Live Queue
           </h2>
-          <button
-            onClick={handleClearAll}
-            className="text-[10px] lg:text-xs font-black uppercase tracking-[0.2em] px-4 py-2 border border-white/10 rounded-xl hover:bg-red-500 hover:text-white transition-all"
-          >
-            Clear
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsSettingsModalOpen(true)}
+              className="p-2 text-white/40 hover:text-orange-500 bg-white/5 border border-white/10 rounded-xl transition-all"
+              title="Settings"
+            >
+              <LayoutGrid className="w-4 h-4 lg:w-5 lg:h-5" />
+            </button>
+            <button
+              onClick={handleClearAll}
+              className="text-[10px] lg:text-xs font-black uppercase tracking-[0.2em] px-4 py-2 border border-white/10 rounded-xl hover:bg-red-500 hover:text-white transition-all"
+            >
+              Clear
+            </button>
+          </div>
         </div>
 
         <div className="space-y-4 max-h-[400px] lg:max-h-[calc(100vh-600px)] overflow-y-auto pr-2 custom-scrollbar">
@@ -889,60 +1013,6 @@ export default function AdminPage({ socket }: AdminPageProps) {
               Another tab is currently the Master Player.
             </p>
           )}
-
-          <div className="h-px bg-white/5 my-2" />
-
-          <h3 className="text-xs font-bold uppercase tracking-widest text-white/40">Configurable Settings</h3>
-
-
-
-          <div className="space-y-2">
-            <label className="text-[10px] lg:text-xs uppercase tracking-widest text-white/40 font-bold">Request Cooldown (seconds)</label>
-            <input
-              type="number"
-              min={0}
-              max={3600}
-              value={settings.requestCooldownSeconds}
-              onChange={(e) => setSettings(prev => ({ ...prev, requestCooldownSeconds: Number(e.target.value || 0) }))}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500/50"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] lg:text-xs uppercase tracking-widest text-white/40 font-bold">Max Queue Size</label>
-            <input
-              type="number"
-              min={1}
-              max={500}
-              value={settings.maxQueueSize}
-              onChange={(e) => setSettings(prev => ({ ...prev, maxQueueSize: Number(e.target.value || 1) }))}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500/50"
-            />
-          </div>
-
-          <div className="space-y-2 pt-2">
-            <label className="text-[10px] lg:text-xs uppercase tracking-widest text-white/40 font-bold">Sidebar Width (px)</label>
-            <input
-              type="number"
-              min={300}
-              max={1200}
-              value={sidebarWidth}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10) || 300;
-                setSidebarWidth(val);
-                localStorage.setItem('sidebarWidth', val.toString());
-              }}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500/50 transition-all"
-            />
-          </div>
-
-          <button
-            onClick={handleSaveSettings}
-            disabled={isSavingSettings}
-            className="w-full p-3 bg-orange-500 text-black rounded-xl text-xs font-black uppercase tracking-[0.2em] hover:brightness-110 transition-all disabled:opacity-60"
-          >
-            {isSavingSettings ? 'Saving...' : 'Save Settings'}
-          </button>
         </div>
       </aside>
 
@@ -1256,6 +1326,100 @@ export default function AdminPage({ socket }: AdminPageProps) {
                       <p className="text-white/20 text-lg italic font-medium">No videos blacklisted</p>
                     </div>
                   )}
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Settings Modal */}
+        <AnimatePresence>
+          {isSettingsModalOpen && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsSettingsModalOpen(false)}
+                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              />
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-md bg-[#151619] border border-white/10 rounded-[2rem] p-6 lg:p-8 space-y-6 shadow-2xl overflow-hidden"
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold flex items-center gap-3 italic">
+                    <LayoutGrid className="w-6 h-6 text-orange-500" />
+                    Settings
+                  </h3>
+                  <button
+                    onClick={() => setIsSettingsModalOpen(false)}
+                    className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all"
+                  >
+                    <Plus className="w-5 h-5 rotate-45 text-white/40" />
+                  </button>
+                </div>
+
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Request Cooldown (seconds)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={3600}
+                      value={settings.requestCooldownSeconds}
+                      onChange={(e) => setSettings(prev => ({ ...prev, requestCooldownSeconds: Number(e.target.value || 0) }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500/50"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Max Queue Size</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={500}
+                      value={settings.maxQueueSize}
+                      onChange={(e) => setSettings(prev => ({ ...prev, maxQueueSize: Number(e.target.value || 1) }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500/50"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Sidebar Width (px)</label>
+                    <input
+                      type="number"
+                      min={300}
+                      max={1200}
+                      value={sidebarWidth}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10) || 300;
+                        setSidebarWidth(val);
+                        localStorage.setItem('sidebarWidth', val.toString());
+                      }}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500/50 transition-all"
+                    />
+                  </div>
+
+                  <div className="h-px bg-white/5 my-2" />
+
+                  <button
+                    onClick={handleResetPlayCounts}
+                    className="w-full p-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all"
+                  >
+                    Reset All Play Counts
+                  </button>
+
+                  <button
+                    onClick={handleSaveSettings}
+                    disabled={isSavingSettings}
+                    className="w-full p-4 bg-orange-500 text-black rounded-xl text-xs font-black uppercase tracking-[0.2em] hover:brightness-110 transition-all disabled:opacity-60 shadow-lg shadow-orange-500/20"
+                  >
+                    {isSavingSettings ? 'Saving...' : 'Save Settings'}
+                  </button>
                 </div>
               </motion.div>
             </div>

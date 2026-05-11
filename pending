@@ -1,0 +1,3 @@
+[x] -have a setting to reset the songs play count in admin page
+[x] -move the configurable settings into a clickable icon and let the the src\components\AdminPage.tsx:799-802 fill it 
+[x] -add the song playcount to src\components\AdminPage.tsx:823-829, to src\components\AdminPage.tsx:766-776, and in src\components\RequestPage.tsx:431-477

@@ -58,3 +58,8 @@ model SearchCache {
   results   String   // JSON stringified results
   timestamp DateTime @default(now())
 }
+
+model SongStats {
+  videoId   String @id
+  playCount Int    @default(0)
+}

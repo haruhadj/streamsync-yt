@@ -62,6 +62,19 @@ const requesterLastRequestAt = new Map<string, number>();
 let currentPlayerState: PlayerState | null = null;
 let masterSocketId: string | null = null;
 
+async function getRequestsWithPlayCounts(requests: any[]) {
+  const videoIds = [...new Set(requests.map(r => r.videoId))];
+  const stats = await (prisma as any).songStats.findMany({
+    where: { videoId: { in: videoIds } }
+  });
+  const statsMap = new Map(stats.map((s: any) => [s.videoId, s.playCount]));
+  
+  return requests.map(r => ({
+    ...r,
+    playCount: statsMap.get(r.videoId) || 0
+  }));
+}
+
 async function triggerSkip() {
   const current = await prisma.request.findFirst({
     where: { status: "playing" },
@@ -87,6 +100,18 @@ async function triggerSkip() {
       where: { id: next.id },
       data: { status: "playing" },
     });
+
+    // Increment play count
+    await (prisma as any).songStats.upsert({
+      where: { videoId: next.videoId },
+      update: { playCount: { increment: 1 } },
+      create: { videoId: next.videoId, playCount: 1 }
+    });
+
+    const stats = await (prisma as any).songStats.findUnique({
+      where: { videoId: next.videoId }
+    });
+
     currentPlayerState = {
       videoId: next.videoId,
       title: next.title,
@@ -95,12 +120,13 @@ async function triggerSkip() {
       currentTime: 0,
       duration: 0,
       requesterName: next.requesterName,
-    };
+      playCount: stats?.playCount || 1
+    } as any;
   } else {
     currentPlayerState = null;
   }
 
-  const updatedQueue = await prisma.request.findMany({
+  const updatedQueueRaw = await prisma.request.findMany({
     where: { status: "pending" },
     orderBy: [
       { order: "asc" },
@@ -108,15 +134,19 @@ async function triggerSkip() {
       { timestamp: "asc" }
     ],
   });
-  const history = await prisma.request.findMany({
+  const updatedQueue = await getRequestsWithPlayCounts(updatedQueueRaw);
+
+  const historyRaw = await prisma.request.findMany({
     where: { status: "played" },
     orderBy: { timestamp: "desc" },
     take: 50
   });
+  const history = await getRequestsWithPlayCounts(historyRaw);
+
   io.emit("queue-update", updatedQueue);
   io.emit("history-update", history);
   io.emit("player-state-sync", currentPlayerState);
-  io.emit("active-track-update", next);
+  io.emit("active-track-update", next ? { ...next, playCount: (currentPlayerState as any).playCount } : null);
 }
 
 function sanitizeSettings(raw: Partial<AppSettings>): AppSettings {
@@ -391,7 +421,7 @@ io.on("connection", async (socket) => {
   }));
 
   // Send initial queue
-  const queue = await prisma.request.findMany({
+  const queueRaw = await prisma.request.findMany({
     where: { status: "pending" },
     orderBy: [
       { order: "asc" },
@@ -399,11 +429,13 @@ io.on("connection", async (socket) => {
       { timestamp: "asc" }
     ],
   });
+  const queue = await getRequestsWithPlayCounts(queueRaw);
   socket.emit("queue-update", queue);
 
-  const activeTrack = await prisma.request.findFirst({
+  const activeTrackRaw = await prisma.request.findFirst({
     where: { status: "playing" },
   });
+  const activeTrack = activeTrackRaw ? (await getRequestsWithPlayCounts([activeTrackRaw]))[0] : null;
   socket.emit("active-track-update", activeTrack);
 
   // Send current player state (we'll assume the first admin handles this)
@@ -512,7 +544,7 @@ io.on("connection", async (socket) => {
           io.emit("player-state-sync", currentPlayerState);
       }
 
-      const updatedQueue = await prisma.request.findMany({
+      const updatedQueueRaw = await prisma.request.findMany({
         where: { status: "pending" },
         orderBy: [
           { order: "asc" },
@@ -520,6 +552,7 @@ io.on("connection", async (socket) => {
           { timestamp: "asc" }
         ],
       });
+      const updatedQueue = await getRequestsWithPlayCounts(updatedQueueRaw);
       requesterLastRequestAt.set(ipString, now);
       io.emit("queue-update", updatedQueue);
       socket.emit("success-toast", "Song added to queue!");
@@ -555,7 +588,7 @@ io.on("connection", async (socket) => {
         }),
       ]);
 
-      const updatedQueue = await prisma.request.findMany({
+      const updatedQueueRaw = await prisma.request.findMany({
         where: { status: "pending" },
         orderBy: [
           { order: "asc" },
@@ -563,6 +596,7 @@ io.on("connection", async (socket) => {
           { timestamp: "asc" }
         ],
       });
+      const updatedQueue = await getRequestsWithPlayCounts(updatedQueueRaw);
       io.emit("queue-update", updatedQueue);
     } catch (err) {
       console.error(err);
@@ -599,7 +633,7 @@ io.on("connection", async (socket) => {
   
   socket.on("admin-delete-request", adminGuard(async (requestId: string) => {
     await prisma.request.delete({ where: { id: requestId } });
-    const updatedQueue = await prisma.request.findMany({
+    const updatedQueueRaw = await prisma.request.findMany({
       where: { status: "pending" },
       orderBy: [
         { order: "asc" },
@@ -607,6 +641,7 @@ io.on("connection", async (socket) => {
         { timestamp: "asc" }
       ],
     });
+    const updatedQueue = await getRequestsWithPlayCounts(updatedQueueRaw);
     io.emit("queue-update", updatedQueue);
   }));
   
@@ -621,7 +656,7 @@ io.on("connection", async (socket) => {
       )
     );
 
-    const updatedQueue = await prisma.request.findMany({
+    const updatedQueueRaw = await prisma.request.findMany({
       where: { status: "pending" },
       orderBy: [
         { order: "asc" },
@@ -629,6 +664,7 @@ io.on("connection", async (socket) => {
         { timestamp: "asc" }
       ],
     });
+    const updatedQueue = await getRequestsWithPlayCounts(updatedQueueRaw);
     io.emit("queue-update", updatedQueue);
   }));
   
@@ -663,15 +699,16 @@ io.on("connection", async (socket) => {
           await triggerSkip();
       } else {
           // Refresh queue since we deleted pending items
-          const updatedQueue = await prisma.request.findMany({
-              where: { status: "pending" },
-              orderBy: [
-                { order: "asc" },
-                { votes: "desc" },
-                { timestamp: "asc" }
-              ],
-          });
-          io.emit("queue-update", updatedQueue);
+      const updatedQueueRaw = await prisma.request.findMany({
+          where: { status: "pending" },
+          orderBy: [
+            { order: "asc" },
+            { votes: "desc" },
+            { timestamp: "asc" }
+          ],
+      });
+      const updatedQueue = await getRequestsWithPlayCounts(updatedQueueRaw);
+      io.emit("queue-update", updatedQueue);
       }
 
       // Also refresh blacklist for anyone watching
@@ -720,7 +757,7 @@ io.on("connection", async (socket) => {
         },
       });
   
-      const updatedQueue = await prisma.request.findMany({
+      const updatedQueueRaw = await prisma.request.findMany({
         where: { status: "pending" },
         orderBy: [
           { order: "asc" },
@@ -728,6 +765,7 @@ io.on("connection", async (socket) => {
           { timestamp: "asc" }
         ],
       });
+      const updatedQueue = await getRequestsWithPlayCounts(updatedQueueRaw);
       io.emit("queue-update", updatedQueue);
       socket.emit("success-toast", "Song added by Admin!");
     } catch (err) {
@@ -775,11 +813,12 @@ io.on("connection", async (socket) => {
       io.emit("active-track-update", newTrack);
       io.emit("player-state-sync", currentPlayerState);
       
-      const history = await prisma.request.findMany({
+      const historyRaw = await prisma.request.findMany({
         where: { status: "played" },
         orderBy: { timestamp: "desc" },
         take: 50
       });
+      const history = await getRequestsWithPlayCounts(historyRaw);
       io.emit("history-update", history);
       socket.emit("success-toast", "Playing now!");
     } catch (err) {
@@ -790,11 +829,12 @@ io.on("connection", async (socket) => {
   
   socket.on("admin-delete-history-video", adminGuard(async (videoId: string) => {
     await prisma.request.deleteMany({ where: { videoId, status: "played" } });
-    const history = await prisma.request.findMany({
+    const historyRaw = await prisma.request.findMany({
       where: { status: "played" },
       orderBy: { timestamp: "desc" },
       take: 50
     });
+    const history = await getRequestsWithPlayCounts(historyRaw);
     io.emit("history-update", history);
   }));
 
@@ -804,20 +844,22 @@ io.on("connection", async (socket) => {
   }));
 
   socket.on("admin-get-history", adminGuard(async () => {
-    const history = await prisma.request.findMany({
+    const historyRaw = await prisma.request.findMany({
       where: { status: "played" },
       orderBy: { timestamp: "desc" },
       take: 50
     });
+    const history = await getRequestsWithPlayCounts(historyRaw);
     socket.emit("history-update", history);
   }));
 
   socket.on("get-history", async () => {
-    const history = await prisma.request.findMany({
+    const historyRaw = await prisma.request.findMany({
       where: { status: "played" },
       orderBy: { timestamp: "desc" },
       take: 50
     });
+    const history = await getRequestsWithPlayCounts(historyRaw);
     socket.emit("history-update", history);
   });
   
@@ -829,6 +871,34 @@ io.on("connection", async (socket) => {
       console.error("Failed to persist settings:", error);
     });
     io.emit("settings-update", appSettings);
+  }));
+
+  socket.on("admin-reset-play-counts", adminGuard(async () => {
+    await (prisma as any).songStats.deleteMany();
+    
+    // Refresh queue and history to reflect reset counts
+    const queueRaw = await prisma.request.findMany({
+      where: { status: "pending" },
+      orderBy: [{ order: "asc" }, { votes: "desc" }, { timestamp: "asc" }],
+    });
+    const updatedQueue = await getRequestsWithPlayCounts(queueRaw);
+    
+    const historyRaw = await prisma.request.findMany({
+      where: { status: "played" },
+      orderBy: { timestamp: "desc" },
+      take: 50
+    });
+    const updatedHistory = await getRequestsWithPlayCounts(historyRaw);
+
+    io.emit("queue-update", updatedQueue);
+    io.emit("history-update", updatedHistory);
+    
+    if (currentPlayerState) {
+      (currentPlayerState as any).playCount = 1; // Since it's currently playing, it counts as 1 if we reset
+      io.emit("player-state-sync", currentPlayerState);
+    }
+    
+    socket.emit("success-toast", "All song play counts have been reset.");
   }));
 
   socket.on("disconnect", () => {

@@ -79,16 +79,7 @@ export default function RequestPage({ socket }: RequestPageProps) {
     });
 
     socket.on('history-update', (updatedHistory: QueueItem[]) => {
-      const grouped = new Map<string, QueueItem>();
-      updatedHistory.forEach(item => {
-        if (grouped.has(item.videoId)) {
-          const existing = grouped.get(item.videoId)!;
-          existing.playCount = (existing.playCount || 1) + 1;
-        } else {
-          grouped.set(item.videoId, { ...item, playCount: 1 });
-        }
-      });
-      setHistory(Array.from(grouped.values()));
+      setHistory(updatedHistory);
     });
 
     socket.on('player-state-sync', (state) => {
@@ -456,6 +447,15 @@ export default function RequestPage({ socket }: RequestPageProps) {
                         <div className="text-[10px] font-black text-orange-500/60 uppercase tracking-widest whitespace-nowrap">
                           {item.votes} {item.votes === 1 ? 'vote' : 'votes'}
                         </div>
+                        {item.playCount && item.playCount > 0 && (
+                          <>
+                            <span className="text-white/10 text-[10px]">•</span>
+                            <div className="flex items-center gap-1 text-orange-500/80">
+                              <RotateCcw className="w-2.5 h-2.5" />
+                              <span className="text-[10px] font-black uppercase tracking-widest">{item.playCount}x</span>
+                            </div>
+                          </>
+                        )}
                         <span className="text-white/10 text-[10px]">•</span>
                         <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest whitespace-nowrap flex items-center gap-1">
                           <Clock className="w-2.5 h-2.5" />
@@ -512,10 +512,10 @@ export default function RequestPage({ socket }: RequestPageProps) {
                       </h4>
 
                       <div className="flex items-center gap-2 mt-1 w-full overflow-hidden">
-                        {item.playCount && item.playCount > 1 ? (
+                        {item.playCount && item.playCount > 0 ? (
                           <div className="flex items-center gap-1 text-[10px] font-bold text-orange-500 uppercase tracking-wider flex-none">
                             <RotateCcw className="w-2.5 h-2.5" />
-                            <span>{item.playCount}x</span>
+                            <span>{item.playCount}x Played</span>
                           </div>
                         ) : (
                           <div className="flex items-center gap-1 text-[10px] font-bold text-white/30 uppercase tracking-wider flex-none">
