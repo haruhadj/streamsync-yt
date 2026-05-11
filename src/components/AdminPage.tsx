@@ -146,6 +146,8 @@ export default function AdminPage({ socket }: AdminPageProps) {
   const [currentVideo, setCurrentVideo] = useState<QueueItem | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [volume, setVolume] = useState(0.5);
+  const [sidebarWidth, setSidebarWidth] = useState(500);
+  const [mobileActiveTab, setMobileActiveTab] = useState<'playback' | 'queue'>('playback');
   const [masterSocketId, setMasterSocketId] = useState<string | null>(null);
   const isMaster = socket.id ? (socket.id === masterSocketId) : false;
 
@@ -260,6 +262,11 @@ export default function AdminPage({ socket }: AdminPageProps) {
     } catch {
       // ignore
     }
+  }, []);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('sidebarWidth');
+    if (saved) setSidebarWidth(parseInt(saved, 10));
   }, []);
 
   const sensors = useSensors(
@@ -575,9 +582,40 @@ export default function AdminPage({ socket }: AdminPageProps) {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-4 lg:py-8 grid lg:grid-cols-[1fr_400px] gap-8">
+    <div 
+      className="max-w-screen-2xl mx-auto px-4 py-4 lg:py-8 grid gap-8 pb-24 lg:pb-8"
+      style={{ 
+        display: 'grid',
+        gridTemplateColumns: typeof window !== 'undefined' && window.innerWidth > 1024 ? `1fr ${sidebarWidth}px` : '1fr' 
+      }}
+    >
+      {/* Mobile Bottom Navigation */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#0a0a0a]/95 backdrop-blur-xl border-t border-white/10 z-[60] flex items-center justify-around p-2 pb-safe">
+        <button
+          onClick={() => setMobileActiveTab('playback')}
+          className={`flex-1 flex flex-col items-center gap-1 py-2 transition-all ${mobileActiveTab === 'playback' ? 'text-orange-500' : 'text-white/20'}`}
+        >
+          <Play className={`w-5 h-5 ${mobileActiveTab === 'playback' ? 'fill-current' : ''}`} />
+          <span className="text-[10px] font-black uppercase tracking-widest">Player</span>
+        </button>
+        <button
+          onClick={() => setMobileActiveTab('queue')}
+          className={`flex-1 flex flex-col items-center gap-1 py-2 transition-all ${mobileActiveTab === 'queue' ? 'text-orange-500' : 'text-white/20'}`}
+        >
+          <div className="relative">
+            <ListMusic className="w-5 h-5" />
+            {queue.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 text-black text-[8px] font-black rounded-full flex items-center justify-center">
+                {queue.length}
+              </span>
+            )}
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest">Queue</span>
+        </button>
+      </div>
+
       {/* Primary Player Section */}
-      <section className="space-y-6">
+      <section className={`${mobileActiveTab === 'playback' ? 'block' : 'hidden lg:block'} space-y-6`}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="space-y-1">
             <h2 className="text-2xl lg:text-3xl font-bold flex items-center gap-3 italic">
@@ -756,7 +794,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
       </section>
 
       {/* Sidebar Queue Management */}
-      <aside className="space-y-6 lg:mt-0">
+      <aside className={`${mobileActiveTab === 'queue' ? 'block' : 'hidden lg:block'} space-y-6 lg:mt-0`}>
         <div className="flex items-center justify-between">
           <h2 className="text-lg lg:text-xl font-bold flex items-center gap-2">
             <ListMusic className="w-5 h-5 lg:w-6 lg:h-6 text-orange-500" />
@@ -879,6 +917,22 @@ export default function AdminPage({ socket }: AdminPageProps) {
               value={settings.maxQueueSize}
               onChange={(e) => setSettings(prev => ({ ...prev, maxQueueSize: Number(e.target.value || 1) }))}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500/50"
+            />
+          </div>
+
+          <div className="space-y-2 pt-2">
+            <label className="text-[10px] lg:text-xs uppercase tracking-widest text-white/40 font-bold">Sidebar Width (px)</label>
+            <input
+              type="number"
+              min={300}
+              max={1200}
+              value={sidebarWidth}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10) || 300;
+                setSidebarWidth(val);
+                localStorage.setItem('sidebarWidth', val.toString());
+              }}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500/50 transition-all"
             />
           </div>
 

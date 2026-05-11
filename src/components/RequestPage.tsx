@@ -233,7 +233,7 @@ export default function RequestPage({ socket }: RequestPageProps) {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 lg:py-8 space-y-8 lg:space-y-12 pb-32">
+    <div className="max-w-screen-2xl mx-auto px-4 py-6 lg:py-8 space-y-8 lg:space-y-12 pb-32">
       {/* Search Header */}
       <section className="space-y-4 lg:space-y-6">
         <div className="space-y-2">
