@@ -566,7 +566,7 @@ io.on("connection", async (socket) => {
           videoId,
           title,
           thumbnail,
-          requesterName: requesterName || "anonymous",
+          requesterName: finalRequesterName,
           requesterIp: ipString,
           order: nextOrder,
         },
@@ -658,7 +658,7 @@ io.on("connection", async (socket) => {
       lastTickLogAt = now;
     }
 
-    console.log(`[Server] Relaying player-tick to clients: ${tick.currentTime}/${tick.duration}`);
+
     io.emit("player-tick", tick);
   }));
   
@@ -816,6 +816,12 @@ io.on("connection", async (socket) => {
           where: { status: "playing" },
           data: { status: "played" }
       });
+
+      const maxOrderRequest = await prisma.request.findFirst({
+        where: { status: "pending" },
+        orderBy: { order: "desc" },
+      });
+      const nextOrder = (maxOrderRequest?.order ?? 0) + 1;
   
       const newTrack = await prisma.request.create({
           data: {
@@ -825,6 +831,7 @@ io.on("connection", async (socket) => {
           status: "playing",
           requesterName: "Admin",
           requesterIp: ipString,
+          order: nextOrder,
       }
     });
   

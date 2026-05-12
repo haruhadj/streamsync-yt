@@ -145,6 +145,8 @@ export default function RequestPage({ socket }: RequestPageProps) {
       socket.off('success-toast');
       socket.off('error-toast');
       socket.off('settings-update');
+      socket.off('username-set-success');
+      socket.off('username-set-error');
     };
   }, [socket, settings.requestCooldownSeconds]);
 

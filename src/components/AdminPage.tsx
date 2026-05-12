@@ -333,7 +333,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
     });
 
     socket.on('player-state-sync', (state: any) => {
-      if (!isMaster) {
+      if (!isMasterRef.current) {
         console.log('[Admin] Received player-state-sync (Non-Master):', state);
         setCurrentVideo(state);
         setIsPlaying(state.playing);
@@ -341,7 +341,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
     });
 
     socket.on('player-tick', (tick: { currentTime: number; duration: number }) => {
-      if (!isMaster && playerRef.current) {
+      if (!isMasterRef.current && playerRef.current) {
         // Non-masters could optionally sync their player, but for now we'll just track it
         // and maybe update a progress bar if we add one to the Admin UI
       }
@@ -630,110 +630,15 @@ export default function AdminPage({ socket }: AdminPageProps) {
               Authenticate
             </button>
           </form>
-        </motion.div>
-        <AnimatePresence>
-          {isSettingsModalOpen && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setIsSettingsModalOpen(false)}
-                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-              />
-
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="relative w-full max-w-md bg-[#151619] border border-white/10 rounded-[2rem] p-6 lg:p-8 space-y-6 shadow-2xl overflow-hidden"
-              >
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold flex items-center gap-3 italic">
-                    <LayoutGrid className="w-6 h-6 text-brand" />
-                    Settings
-                  </h3>
-                  <button
-                    onClick={() => setIsSettingsModalOpen(false)}
-                    className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all"
-                  >
-                    <Plus className="w-5 h-5 rotate-45 text-white/40" />
-                  </button>
-                </div>
-
-                <div className="space-y-5">
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Request Cooldown (seconds)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={3600}
-                      value={settings.requestCooldownSeconds}
-                      onChange={(e) => setSettings(prev => ({ ...prev, requestCooldownSeconds: Number(e.target.value || 0) }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand/50"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Max Queue Size</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={500}
-                      value={settings.maxQueueSize}
-                      onChange={(e) => setSettings(prev => ({ ...prev, maxQueueSize: Number(e.target.value || 1) }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand/50"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Sidebar Width (px)</label>
-                    <input
-                      type="number"
-                      min={300}
-                      max={1200}
-                      value={sidebarWidth}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value, 10) || 300;
-                        setSidebarWidth(val);
-                        localStorage.setItem('sidebarWidth', val.toString());
-                      }}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand/50 transition-all"
-                    />
-                  </div>
-
-                  <div className="h-px bg-white/5 my-2" />
-
-                  <button
-                    onClick={handleResetPlayCounts}
-                    className="w-full p-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all"
-                  >
-                    Reset All Play Counts
-                  </button>
-
-                  <button
-                    onClick={handleSaveSettings}
-                    disabled={isSavingSettings}
-                    className="w-full p-4 bg-brand text-black rounded-xl text-xs font-black uppercase tracking-[0.2em] hover:brightness-110 transition-all disabled:opacity-60 shadow-lg shadow-brand/20"
-                  >
-                    {isSavingSettings ? 'Saving...' : 'Save Settings'}
-                  </button>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-      </div>
+      </motion.div>
+    </div>
     );
   }
 
   return (
     <div
-      className="max-w-screen-2xl mx-auto px-4 py-4 lg:py-8 grid gap-8 pb-24 lg:pb-8"
-      style={{
-        display: 'grid',
-        gridTemplateColumns: typeof window !== 'undefined' && window.innerWidth > 1024 ? `1fr ${sidebarWidth}px` : '1fr'
-      }}
+      className="max-w-screen-2xl mx-auto px-4 py-4 lg:py-8 grid grid-cols-1 lg:grid-cols-[1fr_var(--sidebar-w)] gap-8 pb-24 lg:pb-8"
+      style={{ '--sidebar-w': `${sidebarWidth}px` } as React.CSSProperties}
     >
       {/* Mobile Bottom Navigation */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#0a0a0a]/95 backdrop-blur-xl border-t border-white/10 z-[60] flex items-center justify-around p-2 pb-safe">
@@ -809,7 +714,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
             <Suspense fallback={<PlayerFallback />}>
               <ReactPlayerAny
                 key={currentVideo.videoId}
-                src={`https://www.youtube.com/watch?v=${currentVideo.videoId}`}
+                url={`https://www.youtube.com/watch?v=${currentVideo.videoId}`}
                 ref={(player: any) => {
                   playerRef.current = player;
                   if (player) console.log('[Admin] ReactPlayer ref assigned');
