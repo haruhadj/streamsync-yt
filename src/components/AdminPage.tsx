@@ -1000,7 +1000,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
       </section>
 
       {/* Sidebar Queue Management */}
-      <aside className={`${mobileActiveTab === 'queue' ? 'block' : 'hidden lg:block'} space-y-6 lg:mt-0`}>
+      <aside className={`${mobileActiveTab === 'queue' ? 'block' : 'hidden lg:block'} space-y-6 lg:mt-0 lg:sticky lg:top-24 lg:h-[calc(100vh-120px)] lg:flex lg:flex-col`}>
         <div className="flex items-center justify-between">
           <h2 className="text-lg lg:text-xl font-bold flex items-center gap-2">
             <ListMusic className="w-5 h-5 lg:w-6 lg:h-6 text-orange-500" />
@@ -1023,7 +1023,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
           </div>
         </div>
 
-        <div className="space-y-4 max-h-[400px] lg:max-h-[calc(100vh-600px)] overflow-y-auto pr-2 custom-scrollbar">
+        <div className="space-y-4 flex-1 overflow-y-auto pr-2 custom-scrollbar">
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
