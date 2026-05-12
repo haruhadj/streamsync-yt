@@ -59,6 +59,8 @@ const appSettings: AppSettings = {
 };
 
 const requesterLastRequestAt = new Map<string, number>();
+const userIdToName = new Map<string, string>();
+const nameToUserId = new Map<string, string>();
 let currentPlayerState: PlayerState | null = null;
 let masterSocketId: string | null = null;
 
@@ -75,6 +77,36 @@ async function getRequestsWithPlayCounts(requests: any[]) {
   }));
 }
 
+async function getSortedQueue() {
+  const requests = await prisma.request.findMany({
+    where: { status: "pending" },
+    orderBy: { order: "asc" },
+  });
+
+  if (requests.length <= 3) {
+    return getRequestsWithPlayCounts(requests);
+  }
+
+  const protectedZone = requests.slice(0, 3);
+  const pool = requests.slice(3);
+
+  // Calculate scores for the pool: Score = (Votes * 50) + (Minutes Waiting)
+  const scoredPool = pool.map(req => {
+    const minutesWaiting = (Date.now() - new Date(req.timestamp).getTime()) / (1000 * 60);
+    const score = (req.votes * 50) + minutesWaiting;
+    return { ...req, score };
+  });
+
+  // Sort pool by score descending, then timestamp ascending
+  scoredPool.sort((a: any, b: any) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+  });
+
+  const sortedQueue = [...protectedZone, ...scoredPool];
+  return getRequestsWithPlayCounts(sortedQueue);
+}
+
 async function triggerSkip() {
   const current = await prisma.request.findFirst({
     where: { status: "playing" },
@@ -86,14 +118,9 @@ async function triggerSkip() {
     });
   }
 
-  const next = await prisma.request.findFirst({
-    where: { status: "pending" },
-    orderBy: [
-      { order: "asc" },
-      { votes: "desc" },
-      { timestamp: "asc" }
-    ],
-  });
+  // Get the sorted queue and pick the first one as next
+  const sortedQueue = await getSortedQueue();
+  const next = sortedQueue.length > 0 ? sortedQueue[0] : null;
 
   if (next) {
     await prisma.request.update({
@@ -126,15 +153,8 @@ async function triggerSkip() {
     currentPlayerState = null;
   }
 
-  const updatedQueueRaw = await prisma.request.findMany({
-    where: { status: "pending" },
-    orderBy: [
-      { order: "asc" },
-      { votes: "desc" },
-      { timestamp: "asc" }
-    ],
-  });
-  const updatedQueue = await getRequestsWithPlayCounts(updatedQueueRaw);
+  // Refresh queue after skip
+  const updatedQueue = await getSortedQueue();
 
   const historyRaw = await prisma.request.findMany({
     where: { status: "played" },
@@ -422,15 +442,7 @@ io.on("connection", async (socket) => {
   }));
 
   // Send initial queue
-  const queueRaw = await prisma.request.findMany({
-    where: { status: "pending" },
-    orderBy: [
-      { order: "asc" },
-      { votes: "desc" },
-      { timestamp: "asc" }
-    ],
-  });
-  const queue = await getRequestsWithPlayCounts(queueRaw);
+  const queue = await getSortedQueue();
   socket.emit("queue-update", queue);
 
   const activeTrackRaw = await prisma.request.findFirst({
@@ -465,9 +477,42 @@ io.on("connection", async (socket) => {
     }
   });
 
+  socket.on("set-username", ({ username, userId }: { username: string, userId: string }) => {
+    if (!userId) return;
+    
+    // If empty, allow it as 'anonymous' but don't claim it uniquely in the map
+    // or we can just treat 'anonymous' as any other name.
+    // Let's treat it as a claimable name but allow 'anonymous' to be multiple if we want.
+    // Actually, user wants UNIQUE names.
+    const nameToClaim = (username || "anonymous").trim();
+    const normalized = nameToClaim.toLowerCase();
+    
+    const existingUserId = nameToUserId.get(normalized);
+    if (existingUserId && existingUserId !== userId) {
+      socket.emit("username-set-error", "This name is already taken. Please choose another.");
+      return;
+    }
+
+    // Release old name
+    const currentClaimedName = userIdToName.get(userId);
+    if (currentClaimedName) {
+      nameToUserId.delete(currentClaimedName.toLowerCase());
+    }
+
+    // Claim new name
+    userIdToName.set(userId, nameToClaim);
+    nameToUserId.set(normalized, userId);
+    
+    socket.emit("username-set-success", nameToClaim);
+    console.log(`[User] ${userId} claimed name: ${nameToClaim}`);
+  });
+
   socket.on("request-song", async (data) => {
-    const { videoId, title, thumbnail, requesterName } = data;
+    const { videoId, title, thumbnail, requesterName, userId } = data;
     const now = Date.now();
+
+    // Use the server-side name if available, fallback to provided name (which should have been set-username'd)
+    const finalRequesterName = (userId ? userIdToName.get(userId) : null) || requesterName || "anonymous";
 
     if (appSettings.requestCooldownSeconds > 0) {
       const lastRequestAt = requesterLastRequestAt.get(ipString) ?? 0;
@@ -545,15 +590,7 @@ io.on("connection", async (socket) => {
           io.emit("player-state-sync", currentPlayerState);
       }
 
-      const updatedQueueRaw = await prisma.request.findMany({
-        where: { status: "pending" },
-        orderBy: [
-          { order: "asc" },
-          { votes: "desc" },
-          { timestamp: "asc" }
-        ],
-      });
-      const updatedQueue = await getRequestsWithPlayCounts(updatedQueueRaw);
+      const updatedQueue = await getSortedQueue();
       requesterLastRequestAt.set(ipString, now);
       io.emit("queue-update", updatedQueue);
       socket.emit("success-toast", "Song added to queue!");
@@ -589,15 +626,7 @@ io.on("connection", async (socket) => {
         }),
       ]);
 
-      const updatedQueueRaw = await prisma.request.findMany({
-        where: { status: "pending" },
-        orderBy: [
-          { order: "asc" },
-          { votes: "desc" },
-          { timestamp: "asc" }
-        ],
-      });
-      const updatedQueue = await getRequestsWithPlayCounts(updatedQueueRaw);
+      const updatedQueue = await getSortedQueue();
       io.emit("queue-update", updatedQueue);
     } catch (err) {
       console.error(err);
@@ -639,15 +668,7 @@ io.on("connection", async (socket) => {
         prisma.vote.deleteMany({ where: { requestId } }),
         prisma.request.delete({ where: { id: requestId } })
       ]);
-      const updatedQueueRaw = await prisma.request.findMany({
-        where: { status: "pending" },
-        orderBy: [
-          { order: "asc" },
-          { votes: "desc" },
-          { timestamp: "asc" }
-        ],
-      });
-      const updatedQueue = await getRequestsWithPlayCounts(updatedQueueRaw);
+      const updatedQueue = await getSortedQueue();
       io.emit("queue-update", updatedQueue);
       socket.emit("success-toast", "Request removed.");
     } catch (err) {
@@ -667,15 +688,7 @@ io.on("connection", async (socket) => {
       )
     );
 
-    const updatedQueueRaw = await prisma.request.findMany({
-      where: { status: "pending" },
-      orderBy: [
-        { order: "asc" },
-        { votes: "desc" },
-        { timestamp: "asc" }
-      ],
-    });
-    const updatedQueue = await getRequestsWithPlayCounts(updatedQueueRaw);
+    const updatedQueue = await getSortedQueue();
     io.emit("queue-update", updatedQueue);
   }));
   
@@ -725,15 +738,7 @@ io.on("connection", async (socket) => {
           await triggerSkip();
       } else {
           // Refresh queue since we deleted pending items
-      const updatedQueueRaw = await prisma.request.findMany({
-          where: { status: "pending" },
-          orderBy: [
-            { order: "asc" },
-            { votes: "desc" },
-            { timestamp: "asc" }
-          ],
-      });
-      const updatedQueue = await getRequestsWithPlayCounts(updatedQueueRaw);
+      const updatedQueue = await getSortedQueue();
       io.emit("queue-update", updatedQueue);
       }
 
@@ -783,15 +788,7 @@ io.on("connection", async (socket) => {
         },
       });
   
-      const updatedQueueRaw = await prisma.request.findMany({
-        where: { status: "pending" },
-        orderBy: [
-          { order: "asc" },
-          { votes: "desc" },
-          { timestamp: "asc" }
-        ],
-      });
-      const updatedQueue = await getRequestsWithPlayCounts(updatedQueueRaw);
+      const updatedQueue = await getSortedQueue();
       io.emit("queue-update", updatedQueue);
       socket.emit("success-toast", "Song added by Admin!");
     } catch (err) {

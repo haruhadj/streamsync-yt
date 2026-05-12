@@ -37,6 +37,8 @@ interface AppSettings {
 export default function RequestPage({ socket }: RequestPageProps) {
   const [query, setQuery] = useState('');
   const [username, setUsername] = useState('');
+  const [userId, setUserId] = useState<string>('');
+  const [nameError, setNameError] = useState<string | null>(null);
   const [results, setResults] = useState<Video[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -65,6 +67,13 @@ export default function RequestPage({ socket }: RequestPageProps) {
       if (savedName) {
         setUsername(savedName);
       }
+
+      let savedUserId = localStorage.getItem('ss_userId');
+      if (!savedUserId) {
+        savedUserId = 'user_' + Math.random().toString(36).substring(2, 11);
+        localStorage.setItem('ss_userId', savedUserId);
+      }
+      setUserId(savedUserId);
     } catch {
       // ignore invalid local data
     }
@@ -117,6 +126,17 @@ export default function RequestPage({ socket }: RequestPageProps) {
       localStorage.setItem('requestSettings', JSON.stringify(nextSettings));
     });
 
+    socket.on('username-set-success', (name) => {
+      console.log('[User] Username validated:', name);
+      setNameError(null);
+    });
+
+    socket.on('username-set-error', (err) => {
+      console.error('[User] Username error:', err);
+      setNameError(err);
+      toast.error(err);
+    });
+
     return () => {
       socket.off('queue-update');
       socket.off('history-update');
@@ -167,6 +187,18 @@ export default function RequestPage({ socket }: RequestPageProps) {
     localStorage.setItem('votedSongs', JSON.stringify(next));
   };
 
+  useEffect(() => {
+    if (userId && username) {
+      const timer = setTimeout(() => {
+        socket.emit('set-username', { username, userId });
+      }, 500);
+      return () => clearTimeout(timer);
+    } else if (userId && !username) {
+        // Still register as anonymous if empty
+        socket.emit('set-username', { username: 'anonymous', userId });
+    }
+  }, [socket, userId, username]);
+
 
   const searchYouTube = useCallback(
     debounce(async (val: string) => {
@@ -209,7 +241,13 @@ export default function RequestPage({ socket }: RequestPageProps) {
       toast.error(`Please wait ${cooldown}s before requesting again.`);
       return;
     }
-    socket.emit('request-song', { ...video, requesterName: username || 'anonymous' });
+
+    if (nameError) {
+      toast.error(nameError);
+      return;
+    }
+
+    socket.emit('request-song', { ...video, requesterName: username || 'anonymous', userId });
   };
 
   return (
@@ -222,20 +260,23 @@ export default function RequestPage({ socket }: RequestPageProps) {
         </div>
 
         {/* Username Input */}
-        <div className="bg-[#151619] border border-white/10 rounded-2xl p-4 lg:p-5 flex items-center gap-4 focus-within:border-orange-500/50 transition-all">
-          <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center shrink-0">
-            <User className="w-6 h-6 text-white/40" />
+        <div className={`bg-[#151619] border rounded-2xl p-4 lg:p-5 flex items-center gap-4 transition-all ${nameError ? 'border-red-500/50 bg-red-500/5' : 'border-white/10 focus-within:border-orange-500/50'}`}>
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${nameError ? 'bg-red-500/10' : 'bg-white/5'}`}>
+            <User className={`w-6 h-6 ${nameError ? 'text-red-500/60' : 'text-white/40'}`} />
           </div>
           <div className="flex-1 min-w-0">
-            <label className="text-[10px] lg:text-xs uppercase font-black text-white/75 tracking-widest block mb-1">Your Name (Optional)</label>
+            <label className={`text-[10px] lg:text-xs uppercase font-black tracking-widest block mb-1 ${nameError ? 'text-red-500' : 'text-white/75'}`}>
+              Your Name {nameError ? `(${nameError})` : '(Optional)'}
+            </label>
             <input
               type="text"
               placeholder="anonymous"
               className="w-full bg-transparent border-none outline-none text-white font-bold p-0 focus:ring-0 placeholder:text-white/20 text-base lg:text-lg"
               value={username}
               onChange={(e) => {
-                setUsername(e.target.value);
-                localStorage.setItem('requesterName', e.target.value);
+                const val = e.target.value;
+                setUsername(val);
+                localStorage.setItem('requesterName', val);
               }}
             />
           </div>
