@@ -39,6 +39,7 @@ interface AppSettings {
   maxQueueSize: number;
   allowDuplicateRequests: boolean;
   defaultVolume: number;
+  themeColor: string;
 }
 
 interface PlayerState {
@@ -56,6 +57,7 @@ const appSettings: AppSettings = {
   maxQueueSize: 100,
   allowDuplicateRequests: false,
   defaultVolume: 0.5,
+  themeColor: "#f97316",
 };
 
 const requesterLastRequestAt = new Map<string, number>();
@@ -175,6 +177,7 @@ function sanitizeSettings(raw: Partial<AppSettings>): AppSettings {
     maxQueueSize: Math.max(1, Math.min(500, Math.floor(raw.maxQueueSize ?? appSettings.maxQueueSize))),
     allowDuplicateRequests: typeof raw.allowDuplicateRequests === "boolean" ? raw.allowDuplicateRequests : appSettings.allowDuplicateRequests,
     defaultVolume: Math.max(0, Math.min(1, raw.defaultVolume ?? appSettings.defaultVolume)),
+    themeColor: typeof raw.themeColor === "string" && /^#[0-9A-F]{6}$/i.test(raw.themeColor) ? raw.themeColor : appSettings.themeColor,
   };
 }
 
@@ -192,6 +195,7 @@ async function loadPersistedSettings() {
     if (row.key === "maxQueueSize") parsed.maxQueueSize = Number(row.value);
     if (row.key === "allowDuplicateRequests") parsed.allowDuplicateRequests = row.value === "true";
     if (row.key === "defaultVolume") parsed.defaultVolume = Number(row.value);
+    if (row.key === "themeColor") parsed.themeColor = row.value;
   }
 
   Object.assign(appSettings, sanitizeSettings(parsed));
@@ -204,6 +208,7 @@ async function persistSettings(settings: AppSettings) {
     { key: "maxQueueSize", value: String(settings.maxQueueSize) },
     { key: "allowDuplicateRequests", value: String(settings.allowDuplicateRequests) },
     { key: "defaultVolume", value: String(settings.defaultVolume) },
+    { key: "themeColor", value: String(settings.themeColor) },
   ];
 
   for (const entry of entries) {

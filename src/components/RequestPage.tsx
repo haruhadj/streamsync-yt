@@ -255,12 +255,12 @@ export default function RequestPage({ socket }: RequestPageProps) {
       {/* Search Header */}
       <section className="space-y-4 lg:space-y-6">
         <div className="space-y-2">
-          <h1 className="text-3xl lg:text-4xl font-bold tracking-tight text-center lg:text-left">Request <span className="text-orange-500">Music</span></h1>
+          <h1 className="text-3xl lg:text-4xl font-bold tracking-tight text-center lg:text-left">Request <span className="text-brand">Music</span></h1>
           <p className="text-sm lg:text-base text-white/60 text-center lg:text-left">Search and add songs to the live stream queue.</p>
         </div>
 
         {/* Username Input */}
-        <div className={`bg-[#151619] border rounded-2xl p-4 lg:p-5 flex items-center gap-4 transition-all ${nameError ? 'border-red-500/50 bg-red-500/5' : 'border-white/10 focus-within:border-orange-500/50'}`}>
+        <div className={`bg-[#151619] border rounded-2xl p-4 lg:p-5 flex items-center gap-4 transition-all ${nameError ? 'border-red-500/50 bg-red-500/5' : 'border-white/10 focus-within:border-brand/50'}`}>
           <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${nameError ? 'bg-red-500/10' : 'bg-white/5'}`}>
             <User className={`w-6 h-6 ${nameError ? 'text-red-500/60' : 'text-white/40'}`} />
           </div>
@@ -283,13 +283,13 @@ export default function RequestPage({ socket }: RequestPageProps) {
         </div>
 
         <div className="relative group">
-          <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-white/40 group-focus-within:text-orange-500 transition-colors">
+          <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-white/40 group-focus-within:text-brand transition-colors">
             <Search className="w-5 h-5" />
           </div>
           <input
             type="text"
             placeholder="Search YouTube videos..."
-            className="w-full bg-[#151619] border border-white/10 rounded-2xl py-3 lg:py-4 pl-12 pr-12 outline-none focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/10 transition-all text-base lg:text-lg"
+            className="w-full bg-[#151619] border border-white/10 rounded-2xl py-3 lg:py-4 pl-12 pr-12 outline-none focus:border-brand/50 focus:ring-2 focus:ring-brand/10 transition-all text-base lg:text-lg"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -306,7 +306,7 @@ export default function RequestPage({ socket }: RequestPageProps) {
               </button>
             )}
             {isSearching && (
-              <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
+              <Loader2 className="w-5 h-5 animate-spin text-brand" />
             )}
           </div>
         </div>
@@ -335,11 +335,11 @@ export default function RequestPage({ socket }: RequestPageProps) {
                     }}
                   />
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-bold truncate group-hover:text-orange-500 transition-colors text-sm lg:text-lg">{video.title}</h4>
+                    <h4 className="font-bold truncate group-hover:text-brand transition-colors text-sm lg:text-lg">{video.title}</h4>
                     <p className="text-[10px] lg:text-xs text-white/40 mt-1 uppercase tracking-wider font-bold">YouTube Video</p>
                   </div>
                   <div className="px-2 lg:px-4 shrink-0">
-                    <Play className="w-4 h-4 lg:w-6 lg:h-6 text-orange-500 transform group-hover:translate-x-1 transition-transform" />
+                    <Play className="w-4 h-4 lg:w-6 lg:h-6 text-brand transform group-hover:translate-x-1 transition-transform" />
                   </div>
                 </button>
               ))}
@@ -353,21 +353,21 @@ export default function RequestPage({ socket }: RequestPageProps) {
         <div className="flex lg:hidden bg-[#151619] border border-white/10 p-1 rounded-2xl">
           <button
             onClick={() => setMobileTab('playing')}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${mobileTab === 'playing' ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-white/40'}`}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${mobileTab === 'playing' ? 'bg-brand text-black shadow-lg shadow-brand/20' : 'text-white/40'}`}
           >
             <Play className="w-4 h-4" />
             Playing
           </button>
           <button
             onClick={() => setMobileTab('queue')}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${mobileTab === 'queue' ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-white/40'}`}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${mobileTab === 'queue' ? 'bg-brand text-black shadow-lg shadow-brand/20' : 'text-white/40'}`}
           >
             <ListMusic className="w-4 h-4" />
             Queue ({queue.length})
           </button>
           <button
             onClick={() => setMobileTab('history')}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${mobileTab === 'history' ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-white/40'}`}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${mobileTab === 'history' ? 'bg-brand text-black shadow-lg shadow-brand/20' : 'text-white/40'}`}
           >
             <HistoryIcon className="w-4 h-4" />
             History
@@ -403,25 +403,25 @@ export default function RequestPage({ socket }: RequestPageProps) {
 
                     {nowPlaying.playing && (
                       <div className="absolute bottom-4 left-4 flex items-end gap-1">
-                        <motion.div animate={{ height: [8, 20, 8] }} transition={{ repeat: Infinity, duration: 0.8 }} className="w-1.5 bg-orange-500 rounded-full" />
-                        <motion.div animate={{ height: [12, 24, 12] }} transition={{ repeat: Infinity, duration: 0.8, delay: 0.2 }} className="w-1.5 bg-orange-500 rounded-full" />
-                        <motion.div animate={{ height: [8, 16, 8] }} transition={{ repeat: Infinity, duration: 0.8, delay: 0.4 }} className="w-1.5 bg-orange-500 rounded-full" />
+                        <motion.div animate={{ height: [8, 20, 8] }} transition={{ repeat: Infinity, duration: 0.8 }} className="w-1.5 bg-brand rounded-full" />
+                        <motion.div animate={{ height: [12, 24, 12] }} transition={{ repeat: Infinity, duration: 0.8, delay: 0.2 }} className="w-1.5 bg-brand rounded-full" />
+                        <motion.div animate={{ height: [8, 16, 8] }} transition={{ repeat: Infinity, duration: 0.8, delay: 0.4 }} className="w-1.5 bg-brand rounded-full" />
                       </div>
                     )}
                   </div>
 
                   <div className="flex-1 w-full min-w-0 flex flex-col justify-center space-y-4 lg:space-y-5 text-left">
                     <div className="space-y-2.5">
-                      <h3 className="text-xl lg:text-2xl font-black line-clamp-2 leading-tight uppercase tracking-tight italic text-white drop-shadow-lg transition-colors group-hover:text-orange-500/90">
+                      <h3 className="text-xl lg:text-2xl font-black line-clamp-2 leading-tight uppercase tracking-tight italic text-white drop-shadow-lg transition-colors group-hover:text-brand/90">
                         {nowPlaying.title || 'Loading...'}
                       </h3>
 
                       <div className="flex flex-wrap items-center gap-2 lg:gap-3 justify-start">
-                        <div className="text-[10px] lg:text-xs font-black text-orange-500 bg-orange-500/10 border border-orange-500/20 px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
+                        <div className="text-[10px] lg:text-xs font-black text-brand bg-brand/10 border border-brand/20 px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-brand animate-ping" />
                           Live Now
                         </div>
-                        <div className={`text-[10px] lg:text-xs font-bold ${nowPlaying.requesterName === 'Admin' ? 'text-orange-500 bg-orange-500/10 border-orange-500/20' : 'text-white/40 bg-white/5 border-white/10'} border px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-2`}>
+                        <div className={`text-[10px] lg:text-xs font-bold ${nowPlaying.requesterName === 'Admin' ? 'text-brand bg-brand/10 border-brand/20' : 'text-white/40 bg-white/5 border-white/10'} border px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-2`}>
                           <User className="w-3 h-3" />
                           {nowPlaying.requesterName === 'Admin' ? 'Added by Admin' : (nowPlaying.requesterName || 'anonymous')}
                         </div>
@@ -444,13 +444,13 @@ export default function RequestPage({ socket }: RequestPageProps) {
             <div className="hidden lg:flex bg-[#151619] border border-white/10 p-1 rounded-2xl w-fit mb-6">
               <button
                 onClick={() => setRightTab('queue')}
-                className={`px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${rightTab === 'queue' ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-white/40 hover:text-white'}`}
+                className={`px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${rightTab === 'queue' ? 'bg-brand text-black shadow-lg shadow-brand/20' : 'text-white/40 hover:text-white'}`}
               >
                 <ListMusic className="w-4 h-4" /> Upcoming Queue ({queue.length})
               </button>
               <button
                 onClick={() => setRightTab('history')}
-                className={`px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${rightTab === 'history' ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-white/40 hover:text-white'}`}
+                className={`px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${rightTab === 'history' ? 'bg-brand text-black shadow-lg shadow-brand/20' : 'text-white/40 hover:text-white'}`}
               >
                 <HistoryIcon className="w-4 h-4" /> History
               </button>
@@ -464,7 +464,7 @@ export default function RequestPage({ socket }: RequestPageProps) {
                     <React.Fragment key={item.id}>
                       {index === 0 && (
                         <div className="flex items-center px-1 mb-2">
-                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-500/80">Up Next</span>
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-brand/80">Up Next</span>
                         </div>
                       )}
                       {index === 1 && (
@@ -479,25 +479,25 @@ export default function RequestPage({ socket }: RequestPageProps) {
                             alt=""
                             className="w-16 h-10 sm:w-20 sm:h-12 object-cover rounded-lg shadow-lg ring-1 ring-white/10"
                           />
-                          <div className="absolute -top-1.5 -left-1.5 bg-orange-500 text-black w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black italic shadow-lg lg:hidden">
+                          <div className="absolute -top-1.5 -left-1.5 bg-brand text-black w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black italic shadow-lg lg:hidden">
                             {index + 1}
                           </div>
                         </div>
 
                         {/* Metadata - flex-1 + min-w-0 is CRITICAL here */}
                         <div className="flex-1 min-w-0 flex flex-col justify-center">
-                          <h4 className="font-bold truncate text-sm sm:text-base group-hover/item:text-orange-500 transition-colors leading-snug">
+                          <h4 className="font-bold truncate text-sm sm:text-base group-hover/item:text-brand transition-colors leading-snug">
                             {item.title}
                           </h4>
                           <div className="flex items-center gap-2 mt-1">
-                            <div className={`flex items-center gap-1 text-[10px] font-bold ${item.requesterName === 'Admin' ? 'text-orange-500' : 'text-white/75'} uppercase tracking-wider shrink-0`}>
+                            <div className={`flex items-center gap-1 text-[10px] font-bold ${item.requesterName === 'Admin' ? 'text-brand' : 'text-white/75'} uppercase tracking-wider shrink-0`}>
                               <User className="w-2.5 h-2.5" />
                               <span className="truncate max-w-[120px] sm:max-w-[200px]">
                                 {item.requesterName === 'Admin' ? 'Admin' : (item.requesterName || 'anon')}
                               </span>
                             </div>
                             <span className="text-white/10 text-[10px]">•</span>
-                            <div className="text-[10px] font-black text-orange-500/60 uppercase tracking-widest whitespace-nowrap">
+                            <div className="text-[10px] font-black text-brand/60 uppercase tracking-widest whitespace-nowrap">
                               {item.votes} {item.votes === 1 ? 'vote' : 'votes'}
                             </div>
                           </div>
@@ -507,7 +507,7 @@ export default function RequestPage({ socket }: RequestPageProps) {
                           onClick={() => handleVote(item.id)}
                           disabled={votedSongs.includes(item.id)}
                           className={`p-3 rounded-xl shrink-0 transition-all ${votedSongs.includes(item.id)
-                            ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20'
+                            ? 'bg-brand text-black shadow-lg shadow-brand/20'
                             : 'bg-white/5 text-white/40 hover:text-white hover:bg-white/10 active:scale-95'
                             }`}
                         >
@@ -548,13 +548,13 @@ export default function RequestPage({ socket }: RequestPageProps) {
 
                     {/* 2. Metadata - This is usually where the push happens */}
                     <div className="flex-1 min-w-0 flex flex-col justify-center overflow-hidden">
-                      <h4 className="font-bold truncate text-sm sm:text-base group-hover/item:text-orange-500 transition-colors leading-snug w-full">
+                      <h4 className="font-bold truncate text-sm sm:text-base group-hover/item:text-brand transition-colors leading-snug w-full">
                         {item.title}
                       </h4>
 
                       <div className="flex items-center gap-2 mt-1 w-full overflow-hidden">
                         {(item.playCount ?? 0) >= 1 ? (
-                          <div className="flex items-center gap-1 text-[10px] font-bold text-orange-500 uppercase tracking-wider flex-none">
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-brand uppercase tracking-wider flex-none">
                             <RotateCcw className="w-2.5 h-2.5" />
                             <span>{item.playCount}x Played</span>
                           </div>
@@ -575,7 +575,7 @@ export default function RequestPage({ socket }: RequestPageProps) {
                     <button
                       onClick={() => handleRequest({ videoId: item.videoId, title: item.title, thumbnail: item.thumbnail })}
                       disabled={cooldown > 0}
-                      className="flex-none p-3 bg-white/5 text-white/40 hover:text-black hover:bg-orange-500 rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                      className="flex-none p-3 bg-white/5 text-white/40 hover:text-black hover:bg-brand rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50"
                     >
                       <Play className="w-4 h-4 fill-current" />
                     </button>
@@ -601,7 +601,7 @@ export default function RequestPage({ socket }: RequestPageProps) {
             exit={{ y: 100 }}
             className="fixed bottom-6 lg:bottom-8 left-1/2 -translate-x-1/2 z-50 pointer-events-none w-full max-w-xs lg:max-w-none px-4 lg:px-0"
           >
-            <div className="bg-orange-500 text-black px-4 lg:px-6 py-2.5 lg:py-3 rounded-full font-bold flex items-center justify-center gap-3 shadow-2xl shadow-orange-500/20 text-xs lg:text-base">
+            <div className="bg-brand text-black px-4 lg:px-6 py-2.5 lg:py-3 rounded-full font-bold flex items-center justify-center gap-3 shadow-2xl shadow-brand/20 text-xs lg:text-base">
               <Clock className="w-4 h-4 lg:w-5 lg:h-5 animate-pulse" />
               <span className="truncate">Request Cooldown: {Math.floor(cooldown / 60)}:{Math.floor(cooldown % 60).toString().padStart(2, '0')}</span>
             </div>
