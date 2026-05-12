@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import { Toaster } from 'react-hot-toast';
 import AdminPage from './components/AdminPage';
@@ -16,9 +16,11 @@ const getSocket = () => {
   return socketInstance;
 };
 
-export default function App() {
+function AppContent() {
   const socket = getSocket();
+  const location = useLocation();
   const [isConnected, setIsConnected] = useState(socket.connected);
+  const isOverlay = location.pathname === '/overlay';
 
   useEffect(() => {
     function onConnect() { setIsConnected(true); }
@@ -34,8 +36,7 @@ export default function App() {
   }, [socket]);
 
   return (
-    <Router>
-      <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-orange-500/30">
+      <div className={`min-h-screen ${isOverlay ? 'bg-transparent' : 'bg-[#0a0a0a]'} text-white font-sans selection:bg-orange-500/30`}>
         <Toaster position="bottom-right" toastOptions={{
           style: {
             background: '#151619',
@@ -79,6 +80,13 @@ export default function App() {
           </Routes>
         </main>
       </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Router>
+      <AppContent />
     </Router>
   );
 }
