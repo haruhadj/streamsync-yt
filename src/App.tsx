@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import React, { useEffect, useState, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
@@ -63,7 +64,16 @@ function AppContent() {
                   <span className="font-bold text-xl tracking-tight">StreamSync<span className="text-orange-500">YT</span></span>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-6">
+                  <div className="hidden sm:flex items-center gap-4 border-r border-white/10 pr-6 mr-2">
+                    <Link to="/request" className={`text-xs uppercase font-black tracking-widest transition-all ${location.pathname === '/request' || location.pathname === '/' ? 'text-orange-500' : 'text-white/40 hover:text-white'}`}>
+                      Request
+                    </Link>
+                    <Link to="/admin" className={`text-xs uppercase font-black tracking-widest transition-all ${location.pathname === '/admin' ? 'text-orange-500' : 'text-white/40 hover:text-white'}`}>
+                      Admin
+                    </Link>
+                  </div>
+                  
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full">
                     <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
                     <span className="text-[10px] font-black uppercase tracking-widest text-white/40">

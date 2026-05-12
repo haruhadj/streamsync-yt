@@ -81,6 +81,7 @@ export default function RequestPage({ socket }: RequestPageProps) {
 
   // Sync now playing and queue
   useEffect(() => {
+    socket.emit('sync-state');
     socket.emit('get-history');
 
     socket.on('queue-update', (updatedQueue: QueueItem[]) => {
@@ -190,15 +191,13 @@ export default function RequestPage({ socket }: RequestPageProps) {
   };
 
   useEffect(() => {
-    if (userId && username) {
-      const timer = setTimeout(() => {
-        socket.emit('set-username', { username, userId });
-      }, 500);
-      return () => clearTimeout(timer);
-    } else if (userId && !username) {
-        // Still register as anonymous if empty
-        socket.emit('set-username', { username: 'anonymous', userId });
-    }
+    if (!userId) return;
+    const timer = setTimeout(() => {
+      const nameToClaim = (username || "anonymous").trim();
+      console.log('[User] Claiming name:', nameToClaim);
+      socket.emit('set-username', { username: nameToClaim, userId });
+    }, 500);
+    return () => clearTimeout(timer);
   }, [socket, userId, username]);
 
 

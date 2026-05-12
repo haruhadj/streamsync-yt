@@ -19,6 +19,7 @@ export default function OverlayPage({ socket }: OverlayPageProps) {
   const [queue, setQueue] = useState<any[]>([]);
 
   useEffect(() => {
+    socket.emit('sync-state');
     socket.on('player-state-sync', (state: any) => {
       setNowPlaying(state);
     });

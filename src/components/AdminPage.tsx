@@ -295,6 +295,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
   );
 
   useEffect(() => {
+    socket.emit('sync-state');
     socket.on('queue-update', (updatedQueue: QueueItem[]) => {
       setQueue(updatedQueue);
     });

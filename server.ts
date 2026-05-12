@@ -39,6 +39,7 @@ interface AppSettings {
   maxQueueSize: number;
   allowDuplicateRequests: boolean;
   defaultVolume: number;
+  themeColor: string;
 }
 
 interface PlayerState {
@@ -56,6 +57,7 @@ const appSettings: AppSettings = {
   maxQueueSize: 100,
   allowDuplicateRequests: false,
   defaultVolume: 0.5,
+  themeColor: "#f97316",
 };
 
 const requesterLastRequestAt = new Map<string, number>();
@@ -175,6 +177,7 @@ function sanitizeSettings(raw: Partial<AppSettings>): AppSettings {
     maxQueueSize: Math.max(1, Math.min(500, Math.floor(raw.maxQueueSize ?? appSettings.maxQueueSize))),
     allowDuplicateRequests: typeof raw.allowDuplicateRequests === "boolean" ? raw.allowDuplicateRequests : appSettings.allowDuplicateRequests,
     defaultVolume: Math.max(0, Math.min(1, raw.defaultVolume ?? appSettings.defaultVolume)),
+    themeColor: typeof raw.themeColor === "string" ? raw.themeColor : appSettings.themeColor,
   };
 }
 
@@ -192,6 +195,7 @@ async function loadPersistedSettings() {
     if (row.key === "maxQueueSize") parsed.maxQueueSize = Number(row.value);
     if (row.key === "allowDuplicateRequests") parsed.allowDuplicateRequests = row.value === "true";
     if (row.key === "defaultVolume") parsed.defaultVolume = Number(row.value);
+    if (row.key === "themeColor") parsed.themeColor = row.value;
   }
 
   Object.assign(appSettings, sanitizeSettings(parsed));
@@ -204,6 +208,7 @@ async function persistSettings(settings: AppSettings) {
     { key: "maxQueueSize", value: String(settings.maxQueueSize) },
     { key: "allowDuplicateRequests", value: String(settings.allowDuplicateRequests) },
     { key: "defaultVolume", value: String(settings.defaultVolume) },
+    { key: "themeColor", value: settings.themeColor },
   ];
 
   for (const entry of entries) {
@@ -445,6 +450,21 @@ io.on("connection", async (socket) => {
   const queue = await getSortedQueue();
   socket.emit("queue-update", queue);
 
+  socket.on("sync-state", async () => {
+    console.log(`[Sync] Socket ${socket.id} requested state sync`);
+    const currentQueue = await getSortedQueue();
+    const activeTrackRaw = await prisma.request.findFirst({
+        where: { status: "playing" },
+    });
+    const activeTrack = activeTrackRaw ? (await getRequestsWithPlayCounts([activeTrackRaw]))[0] : null;
+    
+    socket.emit("queue-update", currentQueue);
+    socket.emit("settings-update", appSettings);
+    socket.emit("master-update", masterSocketId);
+    if (activeTrack) socket.emit("active-track-update", activeTrack);
+    if (currentPlayerState) socket.emit("player-state-sync", currentPlayerState);
+  });
+
   const activeTrackRaw = await prisma.request.findFirst({
     where: { status: "playing" },
   });
@@ -488,7 +508,10 @@ io.on("connection", async (socket) => {
     const normalized = nameToClaim.toLowerCase();
     
     const existingUserId = nameToUserId.get(normalized);
-    if (existingUserId && existingUserId !== userId) {
+    console.log(`[User] Claiming: "${nameToClaim}" (normalized: "${normalized}"), Existing owner: ${existingUserId || 'none'}, My ID: ${userId}`);
+    
+    if (normalized !== "anonymous" && existingUserId && existingUserId !== userId) {
+      console.log(`[User] Claim REJECTED: "${nameToClaim}" is already taken by ${existingUserId}`);
       socket.emit("username-set-error", "This name is already taken. Please choose another.");
       return;
     }
@@ -501,7 +524,9 @@ io.on("connection", async (socket) => {
 
     // Claim new name
     userIdToName.set(userId, nameToClaim);
-    nameToUserId.set(normalized, userId);
+    if (normalized !== "anonymous") {
+      nameToUserId.set(normalized, userId);
+    }
     
     socket.emit("username-set-success", nameToClaim);
     console.log(`[User] ${userId} claimed name: ${nameToClaim}`);
