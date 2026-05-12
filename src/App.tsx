@@ -39,19 +39,9 @@ function AppContent() {
     };
   }, [socket]);
 
-  useEffect(() => {
-    socket.on('settings-update', (settings: any) => {
-      if (settings.themeColor) {
-        document.documentElement.style.setProperty('--brand-color', settings.themeColor);
-      }
-    });
-    return () => {
-      socket.off('settings-update');
-    };
-  }, [socket]);
 
   return (
-      <div className={`min-h-screen ${isOverlay ? 'bg-transparent' : 'bg-[#0a0a0a]'} text-white font-sans selection:bg-brand/30`}>
+      <div className={`min-h-screen ${isOverlay ? 'bg-transparent' : 'bg-[#0a0a0a]'} text-white font-sans selection:bg-orange-500/30`}>
         <Toaster position="bottom-right" toastOptions={{
           style: {
             background: '#151619',
@@ -67,10 +57,10 @@ function AppContent() {
             <nav className="border-b border-white/10 bg-[#0a0a0a]/80 backdrop-blur-md sticky top-0 z-50">
               <div className="max-w-screen-2xl mx-auto px-4 h-16 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-brand rounded-lg flex items-center justify-center">
+                  <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
                     <Music2 className="w-5 h-5 text-black" />
                   </div>
-                  <span className="font-bold text-xl tracking-tight">StreamSync<span className="text-brand">YT</span></span>
+                  <span className="font-bold text-xl tracking-tight">StreamSync<span className="text-orange-500">YT</span></span>
                 </div>
 
                 <div className="flex items-center gap-4">

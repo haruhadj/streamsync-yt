@@ -96,7 +96,7 @@ function SortableItem({ item, onDelete, onBanVideo }: {
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-[#151619] border border-white/10 rounded-2xl transition-all ${isDragging ? 'shadow-2xl shadow-black ring-1 ring-brand/50' : 'hover:border-white/20'}`}
+      className={`group flex items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-[#151619] border border-white/10 rounded-2xl transition-all ${isDragging ? 'shadow-2xl shadow-black ring-1 ring-orange-500/50' : 'hover:border-white/20'}`}
     >
       <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-white/20 hover:text-white/40 transition-colors shrink-0">
         <GripVertical className="w-5 h-5" />
@@ -105,15 +105,15 @@ function SortableItem({ item, onDelete, onBanVideo }: {
       <div className="flex-1 min-w-0">
         <h4 className="font-medium truncate text-xs sm:text-sm">{item.title}</h4>
         <div className="flex items-center gap-2 mt-0.5">
-          <p className={`text-[10px] uppercase font-bold ${item.requesterName === 'Admin' ? 'text-brand' : 'text-white/75'} tracking-widest truncate`}>
+          <p className={`text-[10px] uppercase font-bold ${item.requesterName === 'Admin' ? 'text-orange-500' : 'text-white/75'} tracking-widest truncate`}>
             {item.requesterName === 'Admin' ? 'Admin' : (item.requesterName || 'anonymous')}
           </p>
           <span className="text-white/10 text-[10px]">•</span>
-          <p className="text-[10px] font-black text-brand whitespace-nowrap">{item.votes} votes</p>
+          <p className="text-[10px] font-black text-orange-500 whitespace-nowrap">{item.votes} votes</p>
           {(item.playCount ?? 0) >= 1 && (
             <>
               <span className="text-white/10 text-[10px]">•</span>
-              <div className="flex items-center gap-1 text-brand/80">
+              <div className="flex items-center gap-1 text-orange-500/80">
                 <RotateCcw className="w-2.5 h-2.5" />
                 <span className="text-[10px] font-black uppercase tracking-widest">{item.playCount}x Played</span>
               </div>
@@ -125,7 +125,7 @@ function SortableItem({ item, onDelete, onBanVideo }: {
         <button
           onClick={() => onBanVideo(item.videoId, item.title)}
           title="Ban Video"
-          className="p-2 text-white/40 lg:text-white/20 hover:text-brand hover:bg-brand/10 rounded-xl transition-all"
+          className="p-2 text-white/40 lg:text-white/20 hover:text-orange-500 hover:bg-orange-500/10 rounded-xl transition-all"
         >
           <Ban className="w-4 h-4" />
         </button>
@@ -165,7 +165,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
     title: string;
     message: string;
     onConfirm: () => void;
-  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => { } });
   const isMaster = socket.id ? (socket.id === masterSocketId) : false;
 
   // Search state
@@ -607,7 +607,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
           className="w-full max-w-md bg-[#151619] border border-white/10 rounded-[2rem] sm:rounded-[2.5rem] p-8 sm:p-12 space-y-8 shadow-2xl"
         >
           <div className="text-center space-y-2">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-brand rounded-2xl flex items-center justify-center mx-auto mb-6 rotate-3">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-6 rotate-3">
               <LayoutGrid className="w-7 h-7 sm:w-8 sm:h-8 text-black" />
             </div>
             <h1 className="text-2xl sm:text-3xl font-black italic tracking-tighter">ADMIN ACCESS</h1>
@@ -622,16 +622,16 @@ export default function AdminPage({ socket }: AdminPageProps) {
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-brand/50 focus:ring-4 focus:ring-brand/10 transition-all text-center tracking-[0.3em] sm:tracking-[0.5em] font-black text-lg"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/10 transition-all text-center tracking-[0.3em] sm:tracking-[0.5em] font-black text-lg"
                 autoFocus
               />
             </div>
-            <button className="w-full py-4 bg-brand text-black rounded-2xl font-black uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-brand/20">
+            <button className="w-full py-4 bg-orange-500 text-black rounded-2xl font-black uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-orange-500/20">
               Authenticate
             </button>
           </form>
-      </motion.div>
-    </div>
+        </motion.div>
+      </div>
     );
   }
 
@@ -644,19 +644,19 @@ export default function AdminPage({ socket }: AdminPageProps) {
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#0a0a0a]/95 backdrop-blur-xl border-t border-white/10 z-[60] flex items-center justify-around p-2 pb-safe">
         <button
           onClick={() => setMobileActiveTab('playback')}
-          className={`flex-1 flex flex-col items-center gap-1 py-2 transition-all ${mobileActiveTab === 'playback' ? 'text-brand' : 'text-white/20'}`}
+          className={`flex-1 flex flex-col items-center gap-1 py-2 transition-all ${mobileActiveTab === 'playback' ? 'text-orange-500' : 'text-white/20'}`}
         >
           <Play className={`w-5 h-5 ${mobileActiveTab === 'playback' ? 'fill-current' : ''}`} />
           <span className="text-[10px] font-black uppercase tracking-widest">Player</span>
         </button>
         <button
           onClick={() => setMobileActiveTab('queue')}
-          className={`flex-1 flex flex-col items-center gap-1 py-2 transition-all ${mobileActiveTab === 'queue' ? 'text-brand' : 'text-white/20'}`}
+          className={`flex-1 flex flex-col items-center gap-1 py-2 transition-all ${mobileActiveTab === 'queue' ? 'text-orange-500' : 'text-white/20'}`}
         >
           <div className="relative">
             <ListMusic className="w-5 h-5" />
             {queue.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-brand text-black text-[8px] font-black rounded-full flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 text-black text-[8px] font-black rounded-full flex items-center justify-center">
                 {queue.length}
               </span>
             )}
@@ -670,33 +670,33 @@ export default function AdminPage({ socket }: AdminPageProps) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="space-y-1">
             <h2 className="text-2xl lg:text-3xl font-bold flex items-center gap-3 italic">
-              <LayoutGrid className="w-6 h-6 lg:w-7 lg:h-7 text-brand" />
-              Admin <span className="text-brand">Center</span>
+              <LayoutGrid className="w-6 h-6 lg:w-7 lg:h-7 text-orange-500" />
+              Admin <span className="text-orange-500">Center</span>
             </h2>
             <p className="text-xs lg:text-sm text-white/40">Real-time playback control and queue management.</p>
           </div>
           <div className="flex bg-[#151619] border border-white/10 p-1.5 rounded-2xl overflow-x-auto no-scrollbar shrink-0">
             <button
               onClick={() => setActiveTab('main')}
-              className={`px-4 lg:px-6 py-2.5 font-bold text-xs uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${activeTab === 'main' ? 'bg-brand text-black shadow-lg shadow-brand/20' : 'text-white/40 hover:bg-white/5'}`}
+              className={`px-4 lg:px-6 py-2.5 font-bold text-xs uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${activeTab === 'main' ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-white/40 hover:bg-white/5'}`}
             >
               Main
             </button>
             <button
               onClick={() => setIsSearchModalOpen(true)}
-              className={`px-4 lg:px-6 py-2.5 font-bold text-xs uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${isSearchModalOpen ? 'bg-brand text-black shadow-lg shadow-brand/20' : 'text-white/40 hover:bg-white/5'}`}
+              className={`px-4 lg:px-6 py-2.5 font-bold text-xs uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${isSearchModalOpen ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-white/40 hover:bg-white/5'}`}
             >
               Search
             </button>
             <button
               onClick={() => setIsHistoryModalOpen(true)}
-              className={`px-4 lg:px-6 py-2.5 font-bold text-xs uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${isHistoryModalOpen ? 'bg-brand text-black shadow-lg shadow-brand/20' : 'text-white/40 hover:bg-white/5'}`}
+              className={`px-4 lg:px-6 py-2.5 font-bold text-xs uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${isHistoryModalOpen ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-white/40 hover:bg-white/5'}`}
             >
               History
             </button>
             <button
               onClick={() => setIsBlacklistModalOpen(true)}
-              className={`px-4 lg:px-6 py-2.5 font-bold text-xs uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${isBlacklistModalOpen ? 'bg-brand text-black shadow-lg shadow-brand/20' : 'text-white/40 hover:bg-white/5'}`}
+              className={`px-4 lg:px-6 py-2.5 font-bold text-xs uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${isBlacklistModalOpen ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-white/40 hover:bg-white/5'}`}
             >
               Banned
             </button>
@@ -709,12 +709,12 @@ export default function AdminPage({ socket }: AdminPageProps) {
           </div>
         </div>
 
-        <div className="bg-black aspect-video rounded-[1.5rem] lg:rounded-[2.5rem] overflow-hidden border border-white/10 relative shadow-2xl shadow-brand/5">
+        <div className="bg-black aspect-video rounded-[1.5rem] lg:rounded-[2.5rem] overflow-hidden border border-white/10 relative shadow-2xl shadow-orange-500/5">
           {currentVideo?.videoId ? (
             <Suspense fallback={<PlayerFallback />}>
               <ReactPlayerAny
                 key={currentVideo.videoId}
-                url={`https://www.youtube.com/watch?v=${currentVideo.videoId}`}
+                src={`https://www.youtube.com/watch?v=${currentVideo.videoId}`}
                 ref={(player: any) => {
                   playerRef.current = player;
                   if (player) console.log('[Admin] ReactPlayer ref assigned');
@@ -802,8 +802,8 @@ export default function AdminPage({ socket }: AdminPageProps) {
                 setIsPlaying(true);
               }}
             >
-              <div className="text-center p-8 bg-[#151619] border border-brand/50 rounded-[2.5rem] shadow-2xl transition-transform group-hover:scale-105 active:scale-95">
-                <div className="w-16 h-16 bg-brand rounded-2xl flex items-center justify-center mx-auto mb-6 rotate-3 shadow-lg shadow-brand/20 animate-bounce">
+              <div className="text-center p-8 bg-[#151619] border border-orange-500/50 rounded-[2.5rem] shadow-2xl transition-transform group-hover:scale-105 active:scale-95">
+                <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-6 rotate-3 shadow-lg shadow-orange-500/20 animate-bounce">
                   <Play className="w-8 h-8 text-black fill-current" />
                 </div>
                 <h3 className="text-xl lg:text-2xl font-bold italic mb-2 tracking-tight">READY TO STREAM</h3>
@@ -815,8 +815,8 @@ export default function AdminPage({ socket }: AdminPageProps) {
 
         <div className="flex flex-col sm:flex-row items-stretch justify-between bg-[#151619] border border-white/10 rounded-[2rem] lg:rounded-3xl p-5 lg:p-6 gap-4">
           <div className="flex items-center gap-4 min-w-0">
-            <div className="w-12 h-12 lg:w-14 lg:h-14 bg-brand/10 rounded-2xl flex items-center justify-center shrink-0">
-              <Music2 className="w-6 h-6 lg:w-7 lg:h-7 text-brand" />
+            <div className="w-12 h-12 lg:w-14 lg:h-14 bg-orange-500/10 rounded-2xl flex items-center justify-center shrink-0">
+              <Music2 className="w-6 h-6 lg:w-7 lg:h-7 text-orange-500" />
             </div>
             <div className="min-w-0">
               <h3 className="font-bold italic line-clamp-1 text-sm lg:text-lg">{currentVideo?.title || 'No track active'}</h3>
@@ -824,7 +824,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
                 {currentVideo?.requesterName === 'Admin' ? 'Added by Admin' : `Requested by ${currentVideo?.requesterName || 'anonymous'}`}
               </p>
               {(currentVideo?.playCount ?? 0) >= 1 && (
-                <div className="flex items-center gap-1.5 text-brand/100 mt-1">
+                <div className="flex items-center gap-1.5 text-orange-500/100 mt-1">
                   <RotateCcw className="w-3 h-3" />
                   <span className="text-[10px] font-black uppercase tracking-widest">{currentVideo?.playCount}x Played Total</span>
                 </div>
@@ -834,17 +834,17 @@ export default function AdminPage({ socket }: AdminPageProps) {
           <div className="flex gap-2 shrink-0">
             <button
               onClick={() => currentVideo && handleBanVideo(currentVideo.videoId, currentVideo.title)}
-              className="px-4 lg:px-6 py-3 lg:py-4 bg-white/5 hover:bg-brand/10 border border-white/10 hover:border-brand/50 rounded-2xl flex items-center justify-center gap-3 transition-all group"
+              className="px-4 lg:px-6 py-3 lg:py-4 bg-white/5 hover:bg-orange-500/10 border border-white/10 hover:border-orange-500/50 rounded-2xl flex items-center justify-center gap-3 transition-all group"
               title="Ban Current Video"
             >
-              <Ban className="w-4 h-4 lg:w-5 lg:h-5 text-white/40 group-hover:text-brand" />
+              <Ban className="w-4 h-4 lg:w-5 lg:h-5 text-white/40 group-hover:text-orange-500" />
             </button>
             <button
               onClick={handleSkip}
               className="px-6 lg:px-8 py-3 lg:py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex items-center justify-center sm:justify-start gap-3 transition-all group shrink-0"
             >
               <span className="text-[10px] lg:text-xs font-black uppercase tracking-widest text-white/40 group-hover:text-white transition-colors">Skip Track</span>
-              <SkipForward className="w-4 h-4 lg:w-5 lg:h-5 text-brand" />
+              <SkipForward className="w-4 h-4 lg:w-5 lg:h-5 text-orange-500" />
             </button>
           </div>
         </div>
@@ -872,28 +872,28 @@ export default function AdminPage({ socket }: AdminPageProps) {
                 socket.emit('admin-claim-master');
               }
             }}
-            className={`w-full p-4 rounded-xl border transition-all flex items-center justify-between group ${isMaster ? 'bg-brand/10 border-brand/50 text-brand' : 'bg-white/5 border-white/10 text-white/40 hover:border-white/20'}`}
+            className={`w-full p-4 rounded-xl border transition-all flex items-center justify-between group ${isMaster ? 'bg-orange-500/10 border-orange-500/50 text-orange-500' : 'bg-white/5 border-white/10 text-white/40 hover:border-white/20'}`}
           >
             <div className="flex items-center gap-3">
-              <ShieldCheck className={`w-5 h-5 ${isMaster ? 'text-brand' : 'text-white/20'}`} />
+              <ShieldCheck className={`w-5 h-5 ${isMaster ? 'text-orange-500' : 'text-white/20'}`} />
               <span className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
                 {isMaster ? 'Master Active' : (masterSocketId ? 'Take Over Master' : 'Claim Master')}
                 {isMaster && isPlaying && (
                   <motion.span
                     animate={{ opacity: [0.2, 1, 0.2] }}
                     transition={{ repeat: Infinity, duration: 1 }}
-                    className="w-1.5 h-1.5 bg-brand rounded-full"
+                    className="w-1.5 h-1.5 bg-orange-500 rounded-full"
                   />
                 )}
               </span>
             </div>
-            <div className={`w-10 h-5 rounded-full relative transition-colors ${isMaster ? 'bg-brand' : 'bg-white/10'}`}>
+            <div className={`w-10 h-5 rounded-full relative transition-colors ${isMaster ? 'bg-orange-500' : 'bg-white/10'}`}>
               <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${isMaster ? 'left-6' : 'left-1'}`} />
             </div>
           </button>
 
           {isMaster && (
-            <p className="text-[10px] text-brand/60 font-medium italic text-center px-2">
+            <p className="text-[10px] text-orange-500/60 font-medium italic text-center px-2">
               Authoritative sync active. Only one master should be active per session.
             </p>
           )}
@@ -910,13 +910,13 @@ export default function AdminPage({ socket }: AdminPageProps) {
       <aside className={`${mobileActiveTab === 'queue' ? 'block' : 'hidden lg:block'} space-y-6 lg:mt-0 lg:sticky lg:top-24 lg:h-[calc(100vh-120px)] lg:flex lg:flex-col`}>
         <div className="flex items-center justify-between">
           <h2 className="text-lg lg:text-xl font-bold flex items-center gap-2">
-            <ListMusic className="w-5 h-5 lg:w-6 lg:h-6 text-brand" />
+            <ListMusic className="w-5 h-5 lg:w-6 lg:h-6 text-orange-500" />
             Live Queue
           </h2>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsSettingsModalOpen(true)}
-              className="p-2 text-white/40 hover:text-brand bg-white/5 border border-white/10 rounded-xl transition-all"
+              className="p-2 text-white/40 hover:text-orange-500 bg-white/5 border border-white/10 rounded-xl transition-all"
               title="Settings"
             >
               <LayoutGrid className="w-4 h-4 lg:w-5 lg:h-5" />
@@ -985,7 +985,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
                     <h3 className="text-xl lg:text-3xl font-bold flex items-center gap-3 italic">
-                      <Search className="w-6 h-6 lg:w-8 lg:h-8 text-brand" />
+                      <Search className="w-6 h-6 lg:w-8 lg:h-8 text-orange-500" />
                       YouTube Discovery
                     </h3>
                     <p className="text-xs lg:text-sm text-white/40">Find and add songs directly to the live queue.</p>
@@ -999,20 +999,20 @@ export default function AdminPage({ socket }: AdminPageProps) {
                 </div>
 
                 <div className="relative group">
-                  <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-white/40 group-focus-within:text-brand transition-colors">
+                  <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-white/40 group-focus-within:text-orange-500 transition-colors">
                     <Search className="w-6 h-6" />
                   </div>
                   <input
                     type="text"
                     placeholder="Search for videos..."
-                    className="w-full bg-white/5 border border-white/10 rounded-[1.5rem] py-4 lg:py-5 pl-14 pr-6 outline-none focus:border-brand/50 focus:ring-4 focus:ring-brand/10 transition-all text-base lg:text-xl font-medium"
+                    className="w-full bg-white/5 border border-white/10 rounded-[1.5rem] py-4 lg:py-5 pl-14 pr-6 outline-none focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/10 transition-all text-base lg:text-xl font-medium"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     autoFocus
                   />
                   {isSearching && (
                     <div className="absolute right-6 top-1/2 -translate-y-1/2">
-                      <Loader2 className="w-6 h-6 animate-spin text-brand" />
+                      <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
                     </div>
                   )}
                 </div>
@@ -1026,7 +1026,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9 }}
                         layout
-                        className="flex items-center gap-4 p-4 bg-white/[0.03] border border-white/5 rounded-[1.5rem] group hover:border-brand/30 hover:bg-white/[0.05] transition-all"
+                        className="flex items-center gap-4 p-4 bg-white/[0.03] border border-white/5 rounded-[1.5rem] group hover:border-orange-500/30 hover:bg-white/[0.05] transition-all"
                       >
                         <div className="relative shrink-0">
                           <img src={video.thumbnail} alt="" className="w-28 lg:w-36 h-16 lg:h-20 object-cover rounded-xl shadow-lg" />
@@ -1035,7 +1035,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
                           </div>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-bold line-clamp-2 text-sm lg:text-base group-hover:text-brand transition-colors italic mb-3">{video.title}</h4>
+                          <h4 className="font-bold line-clamp-2 text-sm lg:text-base group-hover:text-orange-500 transition-colors italic mb-3">{video.title}</h4>
                           <div className="flex gap-2">
                             <button
                               onClick={() => handlePlayNow(video)}
@@ -1045,13 +1045,13 @@ export default function AdminPage({ socket }: AdminPageProps) {
                             </button>
                             <button
                               onClick={() => handleAdminAdd(video)}
-                              className="flex-[2] py-2 bg-brand text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-brand/20"
+                              className="flex-[2] py-2 bg-orange-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-orange-500/20"
                             >
                               Add Queue
                             </button>
                             <button
                               onClick={() => handleBanVideo(video.videoId, video.title)}
-                              className="flex-1 py-2 bg-white/5 hover:bg-brand/10 text-white/20 hover:text-brand border border-white/10 rounded-xl transition-all flex items-center justify-center"
+                              className="flex-1 py-2 bg-white/5 hover:bg-orange-500/10 text-white/20 hover:text-orange-500 border border-white/10 rounded-xl transition-all flex items-center justify-center"
                               title="Ban Video"
                             >
                               <Ban className="w-3.5 h-3.5" />
@@ -1091,8 +1091,8 @@ export default function AdminPage({ socket }: AdminPageProps) {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 lg:w-12 lg:h-12 bg-brand/10 rounded-xl flex items-center justify-center">
-                      <History className="w-5 h-5 lg:w-6 lg:h-6 text-brand" />
+                    <div className="w-10 h-10 lg:w-12 lg:h-12 bg-orange-500/10 rounded-xl flex items-center justify-center">
+                      <History className="w-5 h-5 lg:w-6 lg:h-6 text-orange-500" />
                     </div>
                     <div>
                       <h3 className="text-xl lg:text-3xl font-bold italic leading-tight">Playback History</h3>
@@ -1130,7 +1130,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, scale: 0.9 }}
                           transition={{ delay: index * 0.03 }}
-                          className="flex items-center gap-4 p-4 bg-white/[0.03] border border-white/5 rounded-[1.5rem] group hover:border-brand/30 hover:bg-white/[0.05] transition-all relative overflow-hidden"
+                          className="flex items-center gap-4 p-4 bg-white/[0.03] border border-white/5 rounded-[1.5rem] group hover:border-orange-500/30 hover:bg-white/[0.05] transition-all relative overflow-hidden"
                         >
                           <div className="relative shrink-0 overflow-hidden rounded-xl shadow-lg">
                             <img
@@ -1149,7 +1149,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
                                 {item.title}
                               </h4>
                               {(item.playCount ?? 0) >= 1 && (
-                                <div className="flex items-center gap-1.5 text-brand/100">
+                                <div className="flex items-center gap-1.5 text-orange-500/100">
                                   <Clock className="w-3 h-3" />
                                   <span className="text-[10px] font-black uppercase tracking-widest">{item.playCount}x Played</span>
                                 </div>
@@ -1164,7 +1164,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
                               </button>
                               <button
                                 onClick={() => handleAdminAdd({ videoId: item.videoId, title: item.title, thumbnail: item.thumbnail })}
-                                className="flex-[2] py-2 bg-brand text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-brand/20"
+                                className="flex-[2] py-2 bg-orange-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-orange-500/20"
                               >
                                 Add Queue
                               </button>
@@ -1174,7 +1174,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
                                     console.log("[Admin] Clicked Ban Video for", item.videoId);
                                     handleBanVideo(item.videoId, item.title);
                                   }}
-                                  className="p-2 bg-white/5 hover:bg-brand/10 text-white/20 hover:text-brand rounded-xl transition-all border border-white/5"
+                                  className="p-2 bg-white/5 hover:bg-orange-500/10 text-white/20 hover:text-orange-500 rounded-xl transition-all border border-white/5"
                                   title="Ban Video"
                                 >
                                   <Ban className="w-4 h-4" />
@@ -1235,8 +1235,8 @@ export default function AdminPage({ socket }: AdminPageProps) {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 lg:w-12 lg:h-12 bg-brand/10 rounded-xl flex items-center justify-center">
-                      <Ban className="w-5 h-5 lg:w-6 lg:h-6 text-brand" />
+                    <div className="w-10 h-10 lg:w-12 lg:h-12 bg-orange-500/10 rounded-xl flex items-center justify-center">
+                      <Ban className="w-5 h-5 lg:w-6 lg:h-6 text-orange-500" />
                     </div>
                     <div>
                       <h3 className="text-xl lg:text-3xl font-bold italic leading-tight">Blacklisted Videos</h3>
@@ -1256,7 +1256,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
                     blacklist.map((item) => (
                       <div
                         key={item.videoId}
-                        className="flex items-center justify-between p-4 bg-white/[0.03] border border-white/5 rounded-2xl group hover:border-brand/30 transition-all"
+                        className="flex items-center justify-between p-4 bg-white/[0.03] border border-white/5 rounded-2xl group hover:border-orange-500/30 transition-all"
                       >
                         <div className="flex items-center gap-4 min-w-0">
                           <img src={`https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg`} alt="" className="w-20 h-12 object-cover rounded-lg" />
@@ -1267,7 +1267,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
                         </div>
                         <button
                           onClick={() => handleUnbanVideo(item.videoId)}
-                          className="px-4 py-2 bg-brand/10 hover:bg-brand text-brand hover:text-white border border-brand/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0"
+                          className="px-4 py-2 bg-orange-500/10 hover:bg-orange-500 text-orange-500 hover:text-white border border-orange-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0"
                         >
                           Unban
                         </button>
@@ -1307,7 +1307,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
               >
                 <div className="flex items-center justify-between">
                   <h3 className="text-xl font-bold flex items-center gap-3 italic">
-                    <LayoutGrid className="w-6 h-6 text-brand" />
+                    <LayoutGrid className="w-6 h-6 text-orange-500" />
                     Settings
                   </h3>
                   <button
@@ -1327,7 +1327,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
                       max={3600}
                       value={settings.requestCooldownSeconds}
                       onChange={(e) => setSettings(prev => ({ ...prev, requestCooldownSeconds: Number(e.target.value || 0) }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand/50"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500/50"
                     />
                   </div>
 
@@ -1339,7 +1339,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
                       max={500}
                       value={settings.maxQueueSize}
                       onChange={(e) => setSettings(prev => ({ ...prev, maxQueueSize: Number(e.target.value || 1) }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand/50"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500/50"
                     />
                   </div>
 
@@ -1355,36 +1355,10 @@ export default function AdminPage({ socket }: AdminPageProps) {
                         setSidebarWidth(val);
                         localStorage.setItem('sidebarWidth', val.toString());
                       }}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand/50 transition-all"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500/50 transition-all"
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Theme Color</label>
-                    <div className="grid grid-cols-5 gap-2">
-                      {['#f97316', '#ef4444', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#facc15', '#06b6d4', '#a855f7', '#64748b'].map(color => (
-                        <button
-                          key={color}
-                          onClick={() => setSettings(prev => ({ ...prev, themeColor: color }))}
-                          className={`h-10 rounded-xl border-2 transition-all ${settings.themeColor === color ? 'border-white scale-110 shadow-lg' : 'border-transparent opacity-80 hover:opacity-100 hover:scale-105'}`}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
-                    </div>
-                    <div className="flex gap-2 items-center mt-2">
-                      <div 
-                        className="w-10 h-10 rounded-xl border border-white/10 shrink-0" 
-                        style={{ backgroundColor: settings.themeColor }}
-                      />
-                      <input
-                        type="text"
-                        value={settings.themeColor}
-                        onChange={(e) => setSettings(prev => ({ ...prev, themeColor: e.target.value }))}
-                        placeholder="#hexcode"
-                        className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand/50 font-mono"
-                      />
-                    </div>
-                  </div>
 
                   <div className="h-px bg-white/5 my-2" />
 
@@ -1398,7 +1372,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
                   <button
                     onClick={handleSaveSettings}
                     disabled={isSavingSettings}
-                    className="w-full p-4 bg-brand text-black rounded-xl text-xs font-black uppercase tracking-[0.2em] hover:brightness-110 transition-all disabled:opacity-60 shadow-lg shadow-brand/20"
+                    className="w-full p-4 bg-orange-500 text-black rounded-xl text-xs font-black uppercase tracking-[0.2em] hover:brightness-110 transition-all disabled:opacity-60 shadow-lg shadow-orange-500/20"
                   >
                     {isSavingSettings ? 'Saving...' : 'Save Settings'}
                   </button>
@@ -1442,7 +1416,7 @@ export default function AdminPage({ socket }: AdminPageProps) {
                     confirmDialog.onConfirm();
                     setConfirmDialog(prev => ({ ...prev, isOpen: false }));
                   }}
-                  className="flex-1 py-3 bg-brand hover:bg-orange-400 text-black rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-brand/20"
+                  className="flex-1 py-3 bg-orange-500 hover:bg-orange-400 text-black rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-orange-500/20"
                 >
                   Confirm
                 </button>
