@@ -267,29 +267,29 @@ export default function RequestPage({ socket }: RequestPageProps) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              className="grid gap-2 lg:gap-3"
+              className="grid gap-2 lg:gap-3 w-full"
             >
               {results.map((video) => (
                 <button
                   key={video.videoId}
                   onClick={() => handleRequest(video)}
                   disabled={cooldown > 0}
-                  className="flex items-center gap-4 p-3 lg:p-4 bg-[#151619] border border-white/10 rounded-2xl hover:bg-white/5 hover:border-white/20 transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                  className="flex items-center w-full gap-3 lg:gap-4 p-2 lg:p-4 bg-[#151619] border border-white/10 rounded-2xl hover:bg-white/5 hover:border-white/20 transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed shadow-lg overflow-hidden"
                 >
                   <img
                     src={video.thumbnail}
                     alt=""
-                    className="w-24 lg:w-32 h-14 lg:h-18 object-cover rounded-xl shrink-0 shadow-md"
+                    className="w-20 lg:w-32 h-12 lg:h-18 object-cover rounded-xl shrink-0 shadow-md"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${video.videoId}/mqdefault.jpg`;
                     }}
                   />
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-bold truncate group-hover:text-orange-500 transition-colors text-base lg:text-lg">{video.title}</h4>
-                    <p className="text-xs text-white/40 mt-1 uppercase tracking-wider font-bold">YouTube Video</p>
+                    <h4 className="font-bold truncate group-hover:text-orange-500 transition-colors text-sm lg:text-lg">{video.title}</h4>
+                    <p className="text-[10px] lg:text-xs text-white/40 mt-1 uppercase tracking-wider font-bold">YouTube Video</p>
                   </div>
                   <div className="px-2 lg:px-4 shrink-0">
-                    <Play className="w-5 h-5 lg:w-6 lg:h-6 text-orange-500 transform group-hover:translate-x-1 transition-transform" />
+                    <Play className="w-4 h-4 lg:w-6 lg:h-6 text-orange-500 transform group-hover:translate-x-1 transition-transform" />
                   </div>
                 </button>
               ))}
