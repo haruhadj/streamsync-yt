@@ -21,19 +21,22 @@
 ## ✨ Key Features
 
 ### 🛠️ Admin Dashboard (`/admin`)
-- **Master Player Control**: Integrated YouTube IFrame Player with auto-play functionality.
-- **Queue Management**: Full CRUD operations (Delete, Reorder, Clear) with drag-and-drop support.
-- **Live Sync**: Broadcasts player state (current time, duration, status) every 500ms to all clients.
-- **Safety Controls**: One-click "Ban Video" and "Ban IP" features to keep your stream clean.
+- **Master Player Control**: Integrated YouTube Player with auto-play and advanced background playback support (includes silent audio keep-alive).
+- **Master Mode Sovereignty**: Exclusive sync control system to ensure only one active "Master" player exists across multiple sessions.
+- **Queue Management**: Full CRUD operations with smooth Drag-and-Drop reordering using `@dnd-kit`.
+- **Live Sync**: Broadcasts player state (currentTime, duration, status) every 500ms to all clients for perfect synchronization.
+- **Safety Controls**: One-click "Ban Video" and "Ban IP" features with persistent SQLite blacklists.
+- **Advanced Settings**: Real-time configuration of request cooldowns, max queue size, and default volume.
 
 ### 📱 Public Request Remote (`/request`)
-- **Real-time Sync**: Displays the currently playing track with a synchronized progress bar.
-- **YouTube Search**: Integrated search proxy (keeps your API key hidden).
-- **Cooldowns & Limits**: Per-user request cooldowns and maximum queue size limits.
-- **Queue Visibility**: Real-time view of upcoming songs and who requested them.
+- **Real-time Sync**: Displays the currently playing track with a synchronized progress bar and "Live Now" status.
+- **Smart Search**: YouTube Search proxying with **Invidious Fallback** and API key rotation to bypass quota limits.
+- **Search Caching**: Persistent SQLite cache for search results to ensure instant responses for popular queries.
+- **Engagement Features**: Voting system to promote songs and "Play Counts" to track popular requests over time.
+- **Mobile First**: Fully responsive design optimized for mobile requestors during live streams.
 
 ### 📺 OBS Overlay (`/overlay`)
-- **Glassmorphism Design**: Modern, premium aesthetic that fits any stream layout.
+- **Glassmorphism Design**: Modern, premium aesthetic with transparent backgrounds that fits any stream layout.
 - **Smart Transitions**: Animated "Now Playing" toasts using Framer Motion.
 - **Dynamic Visibility**: Automatically hides when no music is playing.
 
@@ -43,8 +46,8 @@
 
 - **Frontend**: React (Vite), TypeScript, Tailwind CSS 4.0, Framer Motion, Lucide Icons.
 - **Backend**: Standalone Node.js server, Express, Socket.io for real-time bi-directional communication.
-- **Database**: SQLite (via Prisma ORM) for persistent queue and blacklist management.
-- **API**: Official YouTube Data API v3.
+- **Database**: SQLite (via Prisma ORM) for persistent queue, settings, search cache, and blacklist management.
+- **APIs**: Official YouTube Data API v3 (multi-key support) + Invidious API fallback.
 
 ---
 
@@ -54,7 +57,7 @@
 
 - [Node.js](https://nodejs.org/) (v18 or higher)
 - [pnpm](https://pnpm.io/) (recommended) or npm
-- YouTube Data API Key (from [Google Cloud Console](https://console.cloud.google.com/))
+- YouTube Data API Key(s) (from [Google Cloud Console](https://console.cloud.google.com/))
 
 ### Installation
 
@@ -73,8 +76,9 @@
    Create a `.env` file in the root directory:
    ```env
    DATABASE_URL="file:./dev.db"
-   YOUTUBE_API_KEY="your_youtube_api_key_here"
+   YOUTUBE_API_KEY="key1,key2" # Supports multiple keys for rotation
    ADMIN_PASSWORD="your_secure_password"
+   INVIDIOUS_URL="http://your-invidious-instance" # Optional fallback
    ```
 
 4. **Initialize Database:**
@@ -100,7 +104,7 @@ This project is optimized to run on a **Raspberry Pi** using a **Cloudflare Tunn
    ```
 2. **Start Production Server:**
    ```bash
-   NODE_ENV=production pnpm dev
+   pnpm dev # Runs server.ts which serves the built frontend
    ```
 
 ---
