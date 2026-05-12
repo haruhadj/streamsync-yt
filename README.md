@@ -1,7 +1,4 @@
-<div align="center">
-  <img width="1200" height="475" alt="StreamSync-DirectYT Banner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-  
-  # 🎵 StreamSync-DirectYT
+# 🎵 StreamSync-DirectYT
   
   **The ultimate YouTube music request system for streamers.**  
   Designed for speed, reliability, and seamless OBS integration.
@@ -9,8 +6,6 @@
   [![Tech Stack](https://img.shields.io/badge/Stack-React%20%7C%20Express%20%7C%20Socket.io%20%7C%20Prisma-orange)](https://github.com/admin/streamsync-yt)
   [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/Platform-Raspberry%20Pi%20Ready-green)](https://www.raspberrypi.org/)
-
-</div>
 
 ---
 
