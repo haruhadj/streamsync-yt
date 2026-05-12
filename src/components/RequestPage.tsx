@@ -167,21 +167,6 @@ export default function RequestPage({ socket }: RequestPageProps) {
     localStorage.setItem('votedSongs', JSON.stringify(next));
   };
 
-  const calculateWaitTime = (index: number) => {
-    const AVG_SONG_DURATION = 240; // 4 minutes
-    let time = 0;
-
-    // Time remaining on current song
-    if (nowPlaying && nowPlaying.duration) {
-      time += Math.max(0, nowPlaying.duration - (nowPlaying.currentTime || 0));
-    }
-
-    // Time for songs ahead in queue
-    time += index * AVG_SONG_DURATION;
-
-    if (time < 60) return "Next!";
-    return `~${Math.ceil(time / 60)} min wait`;
-  };
 
   const searchYouTube = useCallback(
     debounce(async (val: string) => {
@@ -424,64 +409,64 @@ export default function RequestPage({ socket }: RequestPageProps) {
             {/* Queue Section */}
             <div className={`space-y-3 w-full max-w-full overflow-hidden ${mobileTab === 'queue' ? 'block' : 'hidden lg:block'} ${rightTab === 'queue' ? 'lg:block' : 'lg:hidden'}`}>
               {queue.length > 0 ? (
-                queue.map((item, index) => (
-                  <div key={item.id} className="flex items-center gap-3 p-3 bg-white/[0.03] hover:bg-white/[0.06] rounded-2xl transition-all group/item border border-white/5 shadow-sm min-w-0 w-full">
-                    <div className="relative shrink-0">
-                      <img
-                        src={item.thumbnail}
-                        alt=""
-                        className="w-16 h-10 sm:w-20 sm:h-12 object-cover rounded-lg shadow-lg ring-1 ring-white/10"
-                      />
-                      <div className="absolute -top-1.5 -left-1.5 bg-orange-500 text-black w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black italic shadow-lg lg:hidden">
-                        {index + 1}
-                      </div>
-                    </div>
+                <div className="space-y-4">
+                  {queue.map((item, index) => (
+                    <React.Fragment key={item.id}>
+                      {index === 0 && (
+                        <div className="flex items-center px-1 mb-2">
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-500/80">Up Next</span>
+                        </div>
+                      )}
+                      {index === 1 && (
+                        <div className="px-1 pt-4 pb-2">
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/75">Later in Queue</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3 p-3 bg-white/[0.03] hover:bg-white/[0.06] rounded-2xl transition-all group/item border border-white/5 shadow-sm min-w-0 w-full">
+                        <div className="relative shrink-0">
+                          <img
+                            src={item.thumbnail}
+                            alt=""
+                            className="w-16 h-10 sm:w-20 sm:h-12 object-cover rounded-lg shadow-lg ring-1 ring-white/10"
+                          />
+                          <div className="absolute -top-1.5 -left-1.5 bg-orange-500 text-black w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black italic shadow-lg lg:hidden">
+                            {index + 1}
+                          </div>
+                        </div>
 
-                    {/* Metadata - flex-1 + min-w-0 is CRITICAL here */}
-                    <div className="flex-1 min-w-0 flex flex-col justify-center">
-                      <h4 className="font-bold truncate text-sm sm:text-base group-hover/item:text-orange-500 transition-colors leading-snug">
-                        {item.title}
-                      </h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className={`flex items-center gap-1 text-[10px] font-bold ${item.requesterName === 'Admin' ? 'text-orange-500' : 'text-white/75'} uppercase tracking-wider shrink-0`}>
-                          <User className="w-2.5 h-2.5" />
-                          <span className="truncate max-w-[60px] sm:max-w-[120px]">
-                            {item.requesterName === 'Admin' ? 'Admin' : (item.requesterName || 'anon')}
-                          </span>
-                        </div>
-                        <span className="text-white/10 text-[10px]">•</span>
-                        <div className="text-[10px] font-black text-orange-500/60 uppercase tracking-widest whitespace-nowrap">
-                          {item.votes} {item.votes === 1 ? 'vote' : 'votes'}
-                        </div>
-                        {(item.playCount ?? 0) >= 1 && (
-                          <>
-                            <span className="text-white/10 text-[10px]">•</span>
-                            <div className="flex items-center gap-1 text-[10px] font-bold text-orange-500 uppercase tracking-wider flex-none">
-                              <RotateCcw className="w-2.5 h-2.5" />
-                              <span>{item.playCount}x Played</span>
+                        {/* Metadata - flex-1 + min-w-0 is CRITICAL here */}
+                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                          <h4 className="font-bold truncate text-sm sm:text-base group-hover/item:text-orange-500 transition-colors leading-snug">
+                            {item.title}
+                          </h4>
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className={`flex items-center gap-1 text-[10px] font-bold ${item.requesterName === 'Admin' ? 'text-orange-500' : 'text-white/75'} uppercase tracking-wider shrink-0`}>
+                              <User className="w-2.5 h-2.5" />
+                              <span className="truncate max-w-[120px] sm:max-w-[200px]">
+                                {item.requesterName === 'Admin' ? 'Admin' : (item.requesterName || 'anon')}
+                              </span>
                             </div>
-                          </>
-                        )}
-                        <span className="text-white/10 text-[10px]">•</span>
-                        <div className="text-[10px] font-bold text-white/75 uppercase tracking-widest whitespace-nowrap flex items-center gap-1">
-                          <Clock className="w-2.5 h-2.5" />
-                          {calculateWaitTime(index)}
+                            <span className="text-white/10 text-[10px]">•</span>
+                            <div className="text-[10px] font-black text-orange-500/60 uppercase tracking-widest whitespace-nowrap">
+                              {item.votes} {item.votes === 1 ? 'vote' : 'votes'}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
 
-                    <button
-                      onClick={() => handleVote(item.id)}
-                      disabled={votedSongs.includes(item.id)}
-                      className={`p-3 rounded-xl shrink-0 transition-all ${votedSongs.includes(item.id)
-                        ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20'
-                        : 'bg-white/5 text-white/40 hover:text-white hover:bg-white/10 active:scale-95'
-                        }`}
-                    >
-                      <ThumbsUp className={`w-4 h-4 ${votedSongs.includes(item.id) ? 'fill-current' : ''}`} />
-                    </button>
-                  </div>
-                ))
+                        <button
+                          onClick={() => handleVote(item.id)}
+                          disabled={votedSongs.includes(item.id)}
+                          className={`p-3 rounded-xl shrink-0 transition-all ${votedSongs.includes(item.id)
+                            ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20'
+                            : 'bg-white/5 text-white/40 hover:text-white hover:bg-white/10 active:scale-95'
+                            }`}
+                        >
+                          <ThumbsUp className={`w-4 h-4 ${votedSongs.includes(item.id) ? 'fill-current' : ''}`} />
+                        </button>
+                      </div>
+                    </React.Fragment>
+                  ))}
+                </div>
               ) : (
                 /* Empty State */
                 <div className="py-12 border-2 border-dashed border-white/5 rounded-[2rem] flex flex-col items-center justify-center text-white/20 text-center px-6">
