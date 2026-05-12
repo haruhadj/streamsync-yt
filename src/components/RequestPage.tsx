@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Socket } from 'socket.io-client';
 import axios from 'axios';
 import debounce from 'lodash.debounce';
-import { Search, Music, Clock, Play, User, ListMusic, Loader2, ThumbsUp, History as HistoryIcon, RotateCcw } from 'lucide-react';
+import { Search, Music, Clock, Play, User, ListMusic, Loader2, ThumbsUp, History as HistoryIcon, RotateCcw, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 
@@ -210,8 +210,6 @@ export default function RequestPage({ socket }: RequestPageProps) {
       return;
     }
     socket.emit('request-song', { ...video, requesterName: username || 'anonymous' });
-    setQuery('');
-    setResults([]);
   };
 
   return (
@@ -250,15 +248,26 @@ export default function RequestPage({ socket }: RequestPageProps) {
           <input
             type="text"
             placeholder="Search YouTube videos..."
-            className="w-full bg-[#151619] border border-white/10 rounded-2xl py-3 lg:py-4 pl-12 pr-4 outline-none focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/10 transition-all text-base lg:text-lg"
+            className="w-full bg-[#151619] border border-white/10 rounded-2xl py-3 lg:py-4 pl-12 pr-12 outline-none focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/10 transition-all text-base lg:text-lg"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          {isSearching && (
-            <div className="absolute right-4 top-1/2 -translate-y-1/2">
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+            {query && !isSearching && (
+              <button
+                onClick={() => {
+                  setQuery('');
+                  setResults([]);
+                }}
+                className="text-white/40 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+            {isSearching && (
               <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         <AnimatePresence>
