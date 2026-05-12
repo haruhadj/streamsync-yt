@@ -200,28 +200,52 @@ export default function AdminPage({ socket }: AdminPageProps) {
     currentVideoRef.current = currentVideo;
   }, [currentVideo]);
 
+  const handleEnded = useCallback(() => {
+    if (!currentVideo || lastSkippedId.current === currentVideo.id) return;
+    lastSkippedId.current = currentVideo.id;
+    console.log('[Admin] Ending song:', currentVideo.title);
+    socket.emit('admin-skip');
+  }, [currentVideo, socket]);
+
+  const handleSkip = useCallback(() => {
+    socket.emit('admin-skip');
+  }, [socket]);
+
 
   // Keep-alive hack: Play nearly silent audio to prevent background throttling
   useEffect(() => {
     let ctx: AudioContext | null = null;
-    let osc: OscillatorNode | null = null;
+    let source: AudioBufferSourceNode | null = null;
 
     const startKeepAlive = () => {
       if (ctx) return;
       try {
         ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        osc = ctx.createOscillator();
+        
+        // Create a short buffer of very quiet noise to keep the audio process alive
+        const bufferSize = ctx.sampleRate * 1; // 1 second
+        const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = (Math.random() * 2 - 1) * 0.01; 
+        }
+
+        source = ctx.createBufferSource();
+        source.buffer = noiseBuffer;
+        source.loop = true;
+
         const gain = ctx.createGain();
-        gain.gain.value = 0.001; // nearly silent
-        osc.connect(gain);
+        gain.gain.value = 0.001; // extremely quiet
+        
+        source.connect(gain);
         gain.connect(ctx.destination);
-        osc.start();
+        source.start();
+        console.log("[Admin] Keep-alive audio started");
       } catch (e) {
         console.error("Keep-alive audio failed:", e);
       }
     };
 
-    // Start on first interaction or when player is ready
     const handleInteraction = () => {
       startKeepAlive();
       setHasInteracted(true);
@@ -230,12 +254,38 @@ export default function AdminPage({ socket }: AdminPageProps) {
     window.addEventListener('click', handleInteraction, { once: true });
     window.addEventListener('keydown', handleInteraction, { once: true });
     return () => {
-      osc?.stop();
+      source?.stop();
       ctx?.close();
       window.removeEventListener('click', handleInteraction);
       window.removeEventListener('keydown', handleInteraction);
     };
   }, []);
+
+  // Watchdog timer to force skip if onEnded doesn't fire (background throttling)
+  useEffect(() => {
+    if (!isMaster || !currentVideo || !isPlaying) return;
+
+    const watchdogInterval = setInterval(() => {
+      const player = playerRef.current;
+      if (!player) return;
+
+      try {
+        const currentTime = player.getCurrentTime?.() ?? 0;
+        const duration = player.getDuration?.() ?? 0;
+
+        // If we are within 1.5 seconds of the end and the song is considered "playing"
+        // but hasn't moved on, trigger the skip manually.
+        if (duration > 0 && currentTime >= duration - 1.5) {
+          console.log('[Admin] Watchdog triggered skip (reached end of track)');
+          handleEnded();
+        }
+      } catch (e) {
+        // ignore player errors
+      }
+    }, 2000);
+
+    return () => clearInterval(watchdogInterval);
+  }, [isMaster, currentVideo, isPlaying, handleEnded]);
 
   // Media Session API for background control
   useEffect(() => {
@@ -411,12 +461,6 @@ export default function AdminPage({ socket }: AdminPageProps) {
     setPasswordInput('');
   };
 
-  const handleEnded = useCallback(() => {
-    if (!currentVideo || lastSkippedId.current === currentVideo.id) return;
-    lastSkippedId.current = currentVideo.id;
-    console.log('[Admin] Ending song:', currentVideo.title);
-    socket.emit('admin-skip');
-  }, [currentVideo, socket]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -431,9 +475,6 @@ export default function AdminPage({ socket }: AdminPageProps) {
     }
   };
 
-  const handleSkip = () => {
-    socket.emit('admin-skip');
-  };
 
   const handleDelete = (id: string) => {
     socket.emit('admin-delete-request', id);
@@ -714,7 +755,6 @@ export default function AdminPage({ socket }: AdminPageProps) {
           {currentVideo?.videoId ? (
             <Suspense fallback={<PlayerFallback />}>
               <ReactPlayerAny
-                key={currentVideo.videoId}
                 src={`https://www.youtube.com/watch?v=${currentVideo.videoId}`}
                 ref={(player: any) => {
                   playerRef.current = player;
