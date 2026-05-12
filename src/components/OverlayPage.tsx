@@ -16,10 +16,15 @@ interface PlayerState {
 
 export default function OverlayPage({ socket }: OverlayPageProps) {
   const [nowPlaying, setNowPlaying] = useState<any | null>(null);
+  const [queue, setQueue] = useState<any[]>([]);
 
   useEffect(() => {
     socket.on('player-state-sync', (state: any) => {
       setNowPlaying(state);
+    });
+
+    socket.on('queue-update', (updatedQueue: any[]) => {
+      setQueue(updatedQueue);
     });
 
     socket.on('player-tick', (tick: { currentTime: number; duration: number }) => {
@@ -31,74 +36,129 @@ export default function OverlayPage({ socket }: OverlayPageProps) {
 
     return () => {
       socket.off('player-state-sync');
+      socket.off('queue-update');
       socket.off('player-tick');
     };
   }, [socket]);
 
+  const topQueue = queue.slice(0, 5);
+
   return (
-    <div className="fixed inset-0 pointer-events-none p-8 flex items-end justify-start overflow-hidden bg-transparent">
+    <div className="fixed inset-0 pointer-events-none p-12 flex flex-col items-center justify-center gap-10 overflow-hidden bg-transparent">
       <AnimatePresence mode="wait">
         {nowPlaying && (
           <motion.div
             key={nowPlaying.videoId}
-            initial={{ x: -100, opacity: 0, scale: 0.8 }}
-            animate={{ x: 0, opacity: 1, scale: 1 }}
-            exit={{ x: -50, opacity: 0, scale: 0.9, filter: 'blur(10px)' }}
-            transition={{ type: 'spring', damping: 20, stiffness: 100 }}
-            className="flex items-center gap-6 bg-[#151619]/95 backdrop-blur-xl border border-white/10 p-5 rounded-[2rem] shadow-2xl shadow-black/50 overflow-hidden relative group"
+            initial={{ y: 20, opacity: 0, scale: 0.9 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: -20, opacity: 0, scale: 0.9, filter: 'blur(10px)' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 120 }}
+            className="flex items-center gap-8 bg-[#151619]/95 backdrop-blur-3xl border border-white/20 p-7 rounded-[3rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.8)] overflow-hidden relative group max-w-2xl w-full"
           >
             {/* Animated Glow Background */}
-            <div className="absolute -inset-20 bg-orange-500/10 blur-[100px] rounded-full mix-blend-screen" />
+            <div className="absolute -inset-20 bg-orange-500/20 blur-[120px] rounded-full mix-blend-screen animate-pulse" />
             
             {/* Thumbnail */}
-            <div className="relative w-24 h-24 rounded-2xl overflow-hidden shadow-xl ring-1 ring-white/10 shrink-0">
+            <div className="relative w-36 h-36 rounded-[2rem] overflow-hidden shadow-2xl ring-2 ring-white/10 shrink-0">
               <img 
                 src={nowPlaying.thumbnail || `https://img.youtube.com/vi/${nowPlaying.videoId}/mqdefault.jpg`} 
-                className="w-full h-full object-cover scale-110 group-hover:scale-125 transition-transform duration-700"
+                className="w-full h-full object-cover scale-110 group-hover:scale-125 transition-transform duration-1000"
                 alt=""
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${nowPlaying.videoId}/mqdefault.jpg`;
                 }}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-              <div className="absolute bottom-2 left-2 p-1 bg-orange-500 text-black rounded-lg">
-                <Music2 className="w-4 h-4" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+              <div className="absolute bottom-4 left-4 p-2 bg-orange-500 text-black rounded-xl shadow-lg">
+                <Music2 className="w-6 h-6" />
               </div>
             </div>
 
             {/* Song Info */}
-            <div className="flex flex-col gap-2 min-w-0 pr-4">
-              <div className="flex items-center gap-2">
-                 <div className="flex gap-1 items-end h-3">
+            <div className="flex flex-col gap-3 min-w-0 pr-6 flex-1">
+              <div className="flex items-center gap-3">
+                 <div className="flex gap-1.5 items-end h-4">
                     {[0,1,2].map(i => (
                         <motion.div 
                             key={i}
                             animate={{ height: ['40%', '100%', '40%'] }}
                             transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.1 }}
-                            className="w-1 bg-orange-500 rounded-full"
+                            className="w-1.5 bg-orange-500 rounded-full"
                         />
                     ))}
                  </div>
-                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-500">Now Playing</span>
+                 <span className="text-[12px] font-black uppercase tracking-[0.4em] text-orange-500 drop-shadow-sm">Now Playing</span>
               </div>
               
-              <h2 className="text-xl font-black italic tracking-tighter text-white leading-none line-clamp-1 drop-shadow-md">
+              <h2 className="text-3xl font-black italic tracking-tighter text-white leading-tight line-clamp-2 drop-shadow-2xl">
                 {nowPlaying.title}
               </h2>
               
-              <div className="flex items-center gap-3 text-xs font-bold text-white/40 uppercase tracking-widest">
-                <span>YouTube Media</span>
-                <span className="w-1 h-1 rounded-full bg-white/20" />
-                <span className="text-white/60">Requested by {nowPlaying.requesterName || 'anonymous'}</span>
+              <div className="flex items-center gap-4 text-xs font-bold text-white/50 uppercase tracking-[0.2em]">
+                <span className="text-white/80 px-3 py-1 bg-white/5 rounded-full border border-white/10">Requested by {nowPlaying.requesterName || 'anonymous'}</span>
               </div>
             </div>
 
             {/* Progress indicator border */}
-            <div className="absolute inset-x-0 bottom-0 h-1 bg-white/5">
-                <div 
-                    className="h-full bg-orange-500 transition-all duration-500 ease-linear"
-                    style={{ width: `${Math.min(100, ((nowPlaying.currentTime || 0) / (nowPlaying.duration || 1)) * 100)}%` }}
+            <div className="absolute inset-x-0 bottom-0 h-2 bg-white/5">
+                <motion.div 
+                    className="h-full bg-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.8)]"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(100, ((nowPlaying.currentTime || 0) / (nowPlaying.duration || 1)) * 100)}%` }}
+                    transition={{ type: 'tween', ease: 'linear' }}
                 />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Top 5 Queue Display */}
+      <AnimatePresence>
+        {topQueue.length > 0 && (
+          <motion.div 
+            initial={{ y: 50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 50, opacity: 0 }}
+            className="flex flex-col items-center gap-5 w-full max-w-xl"
+          >
+            <div className="flex items-center gap-6 w-full opacity-60">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+                <span className="text-[11px] font-black uppercase tracking-[0.5em] text-white/60 whitespace-nowrap">Upcoming Tracklist</span>
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+            </div>
+
+            <div className="flex flex-col gap-3 w-full">
+              {topQueue.map((item, index) => (
+                <motion.div
+                  key={item.id}
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="flex items-center gap-5 bg-[#151619]/80 backdrop-blur-xl border border-white/10 p-3.5 pr-6 rounded-[1.5rem] w-full group/item shadow-xl"
+                >
+                  <span className="text-sm font-black text-orange-500/40 w-6 italic pl-2">{index + 1}</span>
+                  <div className="relative shrink-0">
+                    <img 
+                        src={item.thumbnail} 
+                        className="w-24 h-14 object-cover rounded-xl shadow-lg ring-1 ring-white/10"
+                        alt="" 
+                    />
+                    <div className="absolute inset-0 bg-black/20 rounded-xl" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-bold text-white truncate group-hover/item:text-orange-500 transition-colors tracking-tight">
+                        {item.title}
+                    </h3>
+                    <div className="flex items-center gap-3 mt-1">
+                        <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Next Sequence</span>
+                        <span className="w-1 h-1 rounded-full bg-white/10" />
+                        <p className="text-[10px] font-bold text-orange-500/80 uppercase tracking-widest truncate">
+                            {item.requesterName || 'anonymous'}
+                        </p>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
             </div>
           </motion.div>
         )}
