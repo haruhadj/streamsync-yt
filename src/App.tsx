@@ -42,59 +42,59 @@ function AppContent() {
 
 
   return (
-      <div className={`min-h-screen ${isOverlay ? 'bg-transparent' : 'bg-[#0a0a0a]'} text-white font-sans selection:bg-orange-500/30`}>
-        <Toaster position="bottom-right" toastOptions={{
-          style: {
-            background: '#151619',
-            color: '#fff',
-            border: '1px solid rgba(255,255,255,0.1)',
-          }
-        }} />
+    <div className={`min-h-screen ${isOverlay ? 'bg-transparent' : 'bg-[#0a0a0a]'} text-white font-sans selection:bg-orange-500/30`}>
+      <Toaster position="bottom-right" toastOptions={{
+        style: {
+          background: '#151619',
+          color: '#fff',
+          border: '1px solid rgba(255,255,255,0.1)',
+        }
+      }} />
 
-        {/* Navigation - Only show on main pages, hide on overlay */}
-        <Routes>
-          <Route path="/overlay" element={null} />
-          <Route path="*" element={
-            <nav className="border-b border-white/10 bg-[#0a0a0a]/80 backdrop-blur-md sticky top-0 z-50">
-              <div className="max-w-screen-2xl mx-auto px-4 h-16 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
-                    <Music2 className="w-5 h-5 text-black" />
-                  </div>
-                  <span className="font-bold text-xl tracking-tight">StreamSync<span className="text-orange-500">YT</span></span>
+      {/* Navigation - Only show on main pages, hide on overlay */}
+      <Routes>
+        <Route path="/overlay" element={null} />
+        <Route path="*" element={
+          <nav className="border-b border-white/10 bg-[#0a0a0a]/80 backdrop-blur-md sticky top-0 z-50">
+            <div className="max-w-screen-2xl mx-auto px-4 h-16 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
+                  <Music2 className="w-5 h-5 text-black" />
                 </div>
+                <span className="font-bold text-xl tracking-tight">StreamSync<span className="text-orange-500">YT</span></span>
+              </div>
 
-                <div className="flex items-center gap-6">
-                  <div className="hidden sm:flex items-center gap-4 border-r border-white/10 pr-6 mr-2">
+              <div className="flex items-center gap-6">
+                {/* <div className="hidden sm:flex items-center gap-4 border-r border-white/10 pr-6 mr-2">
                     <Link to="/request" className={`text-xs uppercase font-black tracking-widest transition-all ${location.pathname === '/request' || location.pathname === '/' ? 'text-orange-500' : 'text-white/40 hover:text-white'}`}>
                       Request
                     </Link>
                     <Link to="/admin" className={`text-xs uppercase font-black tracking-widest transition-all ${location.pathname === '/admin' ? 'text-orange-500' : 'text-white/40 hover:text-white'}`}>
                       Admin
                     </Link>
-                  </div>
-                  
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full">
-                    <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
-                      {isConnected ? 'System Live' : 'System Offline'}
-                    </span>
-                  </div>
+                  </div> */}
+
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full">
+                  <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                    {isConnected ? 'System Live' : 'System Offline'}
+                  </span>
                 </div>
               </div>
-            </nav>
-          } />
-        </Routes>
+            </div>
+          </nav>
+        } />
+      </Routes>
 
-        <main>
-          <Routes>
-            <Route path="/" element={<RequestPage socket={socket} />} />
-            <Route path="/request" element={<RequestPage socket={socket} />} />
-            <Route path="/admin" element={<AdminPage socket={socket} />} />
-            <Route path="/overlay" element={<OverlayPage socket={socket} />} />
-          </Routes>
-        </main>
-      </div>
+      <main>
+        <Routes>
+          <Route path="/" element={<RequestPage socket={socket} />} />
+          <Route path="/request" element={<RequestPage socket={socket} />} />
+          <Route path="/admin" element={<AdminPage socket={socket} />} />
+          <Route path="/overlay" element={<OverlayPage socket={socket} />} />
+        </Routes>
+      </main>
+    </div>
   );
 }
 
